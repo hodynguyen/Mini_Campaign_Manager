@@ -1,0 +1,579 @@
+{
+  "version": 1,
+  "built_at": "2026-05-06T16:09:10Z",
+  "entries": [
+    {
+      "file": "api-contracts.md",
+      "total_lines": 116,
+      "has_frontmatter": true,
+      "tags": [
+        "api",
+        "contracts",
+        "endpoints",
+        "planned"
+      ],
+      "author_agent": "human",
+      "created": "2026-05-06",
+      "status": "planned",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "API Contracts",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Auth",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "POST /auth/register",
+          "level": 3,
+          "line": 10
+        },
+        {
+          "heading": "POST /auth/login",
+          "level": 3,
+          "line": 16
+        },
+        {
+          "heading": "Campaigns",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "GET /campaigns",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "POST /campaigns",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "GET /campaigns/:id",
+          "level": 3,
+          "line": 45
+        },
+        {
+          "heading": "PATCH /campaigns/:id",
+          "level": 3,
+          "line": 62
+        },
+        {
+          "heading": "DELETE /campaigns/:id",
+          "level": 3,
+          "line": 69
+        },
+        {
+          "heading": "POST /campaigns/:id/schedule",
+          "level": 3,
+          "line": 75
+        },
+        {
+          "heading": "POST /campaigns/:id/send",
+          "level": 3,
+          "line": 81
+        },
+        {
+          "heading": "Recipients",
+          "level": 2,
+          "line": 90
+        },
+        {
+          "heading": "GET /recipients",
+          "level": 3,
+          "line": 92
+        },
+        {
+          "heading": "POST /recipients",
+          "level": 3,
+          "line": 97
+        },
+        {
+          "heading": "Open tracking (demo-only)",
+          "level": 2,
+          "line": 105
+        }
+      ]
+    },
+    {
+      "file": "architecture.md",
+      "total_lines": 151,
+      "has_frontmatter": true,
+      "tags": [
+        "architecture",
+        "system-design",
+        "planned"
+      ],
+      "author_agent": "human",
+      "created": "2026-05-06",
+      "status": "planned",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Architecture",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "System Overview",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Component Diagram",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Data Flow",
+          "level": 2,
+          "line": 50
+        },
+        {
+          "heading": "Tech Stack Rationale",
+          "level": 2,
+          "line": 77
+        },
+        {
+          "heading": "Open Architecture Questions (for architect agent to resolve)",
+          "level": 2,
+          "line": 94
+        },
+        {
+          "heading": "F1 Scaffold \u2014 Locked Decisions",
+          "level": 2,
+          "line": 104
+        },
+        {
+          "heading": "Pinned versions (no `latest`)",
+          "level": 3,
+          "line": 110
+        },
+        {
+          "heading": "tsconfig.base.json \u2014 locked options",
+          "level": 3,
+          "line": 122
+        },
+        {
+          "heading": ".eslintrc.cjs \u2014 root only",
+          "level": 3,
+          "line": 129
+        },
+        {
+          "heading": ".prettierrc",
+          "level": 3,
+          "line": 135
+        },
+        {
+          "heading": "Root scripts",
+          "level": 3,
+          "line": 138
+        },
+        {
+          "heading": "Deviations from spec-scaffold-and-dev-env.md",
+          "level": 3,
+          "line": 143
+        }
+      ]
+    },
+    {
+      "file": "business-rules.md",
+      "total_lines": 85,
+      "has_frontmatter": true,
+      "tags": [
+        "business-rules",
+        "domain"
+      ],
+      "author_agent": "human",
+      "created": "2026-05-06",
+      "status": "active",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Business Rules",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Campaign lifecycle",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Rule: Campaign status state machine",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "Rule: Edit only in draft",
+          "level": 3,
+          "line": 18
+        },
+        {
+          "heading": "Rule: Delete only in draft",
+          "level": 3,
+          "line": 23
+        },
+        {
+          "heading": "Rule: scheduled_at must be in the future",
+          "level": 3,
+          "line": 28
+        },
+        {
+          "heading": "Rule: Sending is one-way",
+          "level": 3,
+          "line": 35
+        },
+        {
+          "heading": "Authorization",
+          "level": 2,
+          "line": 40
+        },
+        {
+          "heading": "Rule: Tenancy by created_by",
+          "level": 3,
+          "line": 42
+        },
+        {
+          "heading": "Stats computation",
+          "level": 2,
+          "line": 47
+        },
+        {
+          "heading": "Rule: stats shape (per brief)",
+          "level": 3,
+          "line": 49
+        },
+        {
+          "heading": "Recipients",
+          "level": 2,
+          "line": 61
+        },
+        {
+          "heading": "Rule: Recipient identity by email",
+          "level": 3,
+          "line": 63
+        },
+        {
+          "heading": "Rule: Adding recipients to a non-draft campaign",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "Async send simulation",
+          "level": 2,
+          "line": 71
+        },
+        {
+          "heading": "Rule: Random outcome per recipient",
+          "level": 3,
+          "line": 73
+        }
+      ]
+    },
+    {
+      "file": "decisions.md",
+      "total_lines": 134,
+      "has_frontmatter": true,
+      "tags": [
+        "decisions",
+        "adr"
+      ],
+      "author_agent": "human",
+      "created": "2026-05-06",
+      "status": "active",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Architecture Decision Records",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "ADR-001: Initial Tech Stack (locked by assignment brief)",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "ADR-002: Async send simulation strategy",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "ADR-003: JWT storage on the client",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "ADR-004: Yarn 1 + selective `nohoist` for testing-library",
+          "level": 2,
+          "line": 55
+        },
+        {
+          "heading": "ADR-005: TypeScript module strategy split \u2014 ESM web / CJS api",
+          "level": 2,
+          "line": 79
+        },
+        {
+          "heading": "ADR-006: ESLint 8 (legacy config), not 9 (flat config)",
+          "level": 2,
+          "line": 103
+        },
+        {
+          "heading": "ADR-007: F1 scope guards \u2014 what is intentionally NOT here",
+          "level": 2,
+          "line": 117
+        }
+      ]
+    },
+    {
+      "file": "log-scaffold-and-dev-env.md",
+      "total_lines": 303,
+      "has_frontmatter": true,
+      "tags": [
+        "log",
+        "new-feature",
+        "scaffold"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "completed",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Feature Log: F1 \u2014 Scaffold & Dev Environment",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Spec",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Agent Work",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "architect \u2014 Locked root toolchain (tsconfig, eslint, prettier, root package.json, packages/shared scaffold)",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "backend \u2014 apps/api scaffold",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "frontend \u2014 apps/web scaffold",
+          "level": 3,
+          "line": 90
+        },
+        {
+          "heading": "devops \u2014 local infra + CI",
+          "level": 3,
+          "line": 133
+        },
+        {
+          "heading": "unit-tester \u2014 install + smoke tests",
+          "level": 3,
+          "line": 171
+        },
+        {
+          "heading": "code-reviewer \u2014 F1 scaffold review",
+          "level": 3,
+          "line": 216
+        },
+        {
+          "heading": "Summary (finalize)",
+          "level": 2,
+          "line": 270
+        }
+      ]
+    },
+    {
+      "file": "runbook.md",
+      "total_lines": 76,
+      "has_frontmatter": true,
+      "tags": [
+        "runbook",
+        "operations",
+        "dev"
+      ],
+      "author_agent": "human",
+      "created": "2026-05-06",
+      "status": "planned",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Runbook",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Local Development (target)",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "1. Boot infra",
+          "level": 1,
+          "line": 10
+        },
+        {
+          "heading": "2. Install deps (yarn workspaces)",
+          "level": 1,
+          "line": 13
+        },
+        {
+          "heading": "3. Run migrations + seed",
+          "level": 1,
+          "line": 16
+        },
+        {
+          "heading": "4. Start backend (port 4000)",
+          "level": 1,
+          "line": 20
+        },
+        {
+          "heading": "5. Start frontend (port 5173)",
+          "level": 1,
+          "line": 23
+        },
+        {
+          "heading": "Common dev commands (target)",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "Environment variables (target)",
+          "level": 2,
+          "line": 42
+        },
+        {
+          "heading": "Deployment",
+          "level": 2,
+          "line": 57
+        },
+        {
+          "heading": "Common Issues (anticipated)",
+          "level": 2,
+          "line": 61
+        },
+        {
+          "heading": "Monitoring & Alerts",
+          "level": 2,
+          "line": 67
+        }
+      ]
+    },
+    {
+      "file": "spec-scaffold-and-dev-env.md",
+      "total_lines": 187,
+      "has_frontmatter": true,
+      "tags": [
+        "spec",
+        "new-feature",
+        "scaffold",
+        "devops",
+        "monorepo"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "implemented",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Spec: F1 \u2014 Scaffold & Dev Environment",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Requirements",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Technical Design",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Monorepo layout",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "Locked tech decisions (made by AI per user delegation)",
+          "level": 3,
+          "line": 77
+        },
+        {
+          "heading": "Root `package.json` shape (planned)",
+          "level": 3,
+          "line": 104
+        },
+        {
+          "heading": "docker-compose.yml shape (planned)",
+          "level": 3,
+          "line": 125
+        },
+        {
+          "heading": "Smoke tests (acceptance criteria)",
+          "level": 3,
+          "line": 145
+        },
+        {
+          "heading": "Out of Scope",
+          "level": 2,
+          "line": 150
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 2,
+          "line": 161
+        },
+        {
+          "heading": "Definition of Done",
+          "level": 2,
+          "line": 173
+        }
+      ]
+    },
+    {
+      "file": "tech-debt.md",
+      "total_lines": 14,
+      "has_frontmatter": true,
+      "tags": [
+        "tech-debt",
+        "quality"
+      ],
+      "author_agent": "human",
+      "created": "2026-05-06",
+      "status": "active",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Tech Debt",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "(no entries yet)",
+          "level": 2,
+          "line": 7
+        }
+      ]
+    }
+  ]
+}

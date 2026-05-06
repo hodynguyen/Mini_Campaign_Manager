@@ -1,0 +1,28 @@
+name: mini-campaign-manager
+
+# F1 scope: Postgres only. Redis (for BullMQ) is deferred to F3 per spec.
+# Production Dockerfiles for the api/web are intentionally NOT defined —
+# F1 runs the apps as local processes via `yarn workspace @app/<name> dev`.
+# Credentials match apps/api/.env.example (campaign / campaign / campaign).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mcm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: campaign
+      POSTGRES_PASSWORD: campaign
+      POSTGRES_DB: campaign
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campaign -d campaign"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

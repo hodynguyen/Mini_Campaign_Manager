@@ -1,0 +1,38 @@
+{
+  "name": "mini-campaign-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Take-home assignment — full-stack Mini Campaign Manager (MarTech tool).",
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "nohoist": [
+      "**/@testing-library/jest-dom",
+      "**/@testing-library/jest-dom/**"
+    ]
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "yarn@1.22.22",
+  "scripts": {
+    "dev": "yarn workspaces run dev",
+    "build": "yarn workspaces run build",
+    "test": "yarn workspaces run test",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "@typescript-eslint/parser": "7.18.0",
+    "eslint": "8.57.1",
+    "eslint-config-prettier": "9.1.0",
+    "prettier": "3.3.3",
+    "typescript": "5.4.5"
+  }
+}

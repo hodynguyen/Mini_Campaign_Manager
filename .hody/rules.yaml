@@ -1,0 +1,52 @@
+# .hody/rules.yaml — Project Rules for Hody Workflow Agents
+# User-authored rules that all agents respect during development.
+#
+# Structure: category → subcategory → list of rule strings.
+# Uncomment and customize the rules relevant to your project.
+# See: /hody-workflow:rules for management commands.
+
+version: "1"
+
+# Coding conventions — followed by frontend, backend, code-reviewer agents
+# coding:
+#   naming:
+#     - "Use camelCase for variables and functions"
+#     - "Use PascalCase for classes and components"
+#   patterns:
+#     - "Use repository pattern for database access"
+#     - "Use DTOs for API request/response types"
+#   forbidden:
+#     - "Never use any as a TypeScript type"
+#     - "Do not use default exports — use named exports only"
+
+# Architecture constraints — followed by architect, code-reviewer, spec-verifier
+# architecture:
+#   boundaries:
+#     - "Services must not import directly from controllers"
+#     - "Frontend components must not call database layers"
+#   patterns:
+#     - "All API endpoints follow REST conventions"
+#   constraints:
+#     - "Each module must have an index.ts barrel file"
+
+# Testing rules — followed by unit-tester, integration-tester agents
+# testing:
+#   requirements:
+#     - "Every new API endpoint must have integration tests"
+#     - "Business logic functions require unit tests with edge cases"
+#   coverage:
+#     - "Minimum 80% line coverage for src/ directory"
+#   patterns:
+#     - "Use factory functions for test data, not raw objects"
+
+# Workflow preferences — affect agent behavior and process
+# workflow:
+#   preferences:
+#     - "Always run code-reviewer before merging"
+#   agent_behavior:
+#     - "Keep code changes under 300 lines per commit"
+
+# Custom rules — freeform, applied to all agents
+# custom:
+#   - "All user-facing strings must support i18n"
+#   - "Third-party dependencies require team lead approval"

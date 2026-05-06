@@ -1,0 +1,70 @@
+project:
+  name: mini-campaign-manager
+  type: fullstack
+  status: greenfield
+  description: |
+    Take-home assignment — full-stack Mini Campaign Manager (MarTech tool for
+    creating, scheduling, and tracking email campaigns). Brief lives in
+    ASSIGNMENT.md. Detector reports "unknown" because no source code exists yet;
+    fields below are the *planned* stack per the brief, not auto-detected.
+
+stack:
+  monorepo:
+    tool: yarn-workspaces
+    layout:
+      - apps/api        # Express + Sequelize backend
+      - apps/web        # React + Vite frontend
+      - packages/*      # shared types/utils (optional)
+
+  backend:
+    language: typescript
+    runtime: node
+    framework: express
+    orm: sequelize
+    database: postgresql
+    auth: jwt
+    validation: zod          # zod or joi per brief; zod preferred (TS-first)
+    migrations: sequelize-cli  # could also be raw SQL or knex
+    testing: jest + supertest
+    async_jobs: in-process simulation (setImmediate / setTimeout) — BullMQ optional
+
+  frontend:
+    language: typescript
+    framework: react
+    bundler: vite
+    data_fetching: react-query
+    state: zustand
+    ui_kit: tbd              # shadcn/ui | chakra | mui | tailwind — pick during architect step
+    routing: react-router
+
+  infra:
+    container: docker-compose  # postgres + (optional) redis + api + web
+    ci: github-actions         # optional, nice-to-have
+
+evaluation_focus:
+  # From the JD + assignment "What we evaluate" section. Agents should bias toward these.
+  - backend_correctness_and_business_rules
+  - api_design_rest_conventions_error_handling
+  - frontend_quality_ux_loading_error_states
+  - code_quality_separation_of_concerns
+  - ai_collaboration_judgment_transparency
+  - testing_meaningful_coverage
+
+constraints:
+  time_budget_hours: 4-8
+  must_use:
+    - express                # JD says one of Express/Fastify/Hono — brief locks to Express
+    - sequelize
+    - react-query-or-swr
+    - zustand-or-redux
+    - jwt
+    - yarn-workspaces
+  deliverables:
+    - public_github_repo
+    - readme_with_setup
+    - readme_with_how_i_used_claude_code_section
+    - docker_compose_up_to_run_locally
+    - seed_data_or_demo_script
+    - at_least_3_meaningful_tests
+
+integrations: {}

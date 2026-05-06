@@ -1,0 +1,63 @@
+# Mini Campaign Manager — CI
+#
+# Minimal MVP pipeline for F1: install + lint + test on PR / push-to-main.
+# No deploy job — this repo is a take-home; deployment is out of scope.
+#
+# Why no Postgres service container:
+#   F1's only api test is a /health smoke test that does not touch the DB
+#   (per backend agent's hand-off in log-scaffold-and-dev-env.md). When F2
+#   adds DB-backed tests, this workflow will need a `services.postgres` block.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same branch / PR to save minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install-lint-test:
+    name: install · lint · test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Built-in yarn cache keyed off yarn.lock — faster than rolling our own.
+          cache: yarn
+
+      # Belt-and-suspenders: cache hoisted node_modules across runs to skip
+      # the resolve+link step entirely on lockfile-stable PRs. The setup-node
+      # cache above only restores ~/.cache/yarn (the download cache).
+      - name: Cache workspace node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: ${{ runner.os }}-node20-modules-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node20-modules-
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        # Root `yarn test` fans out to workspaces:
+        #   - @app/api  → jest  (node env, /health supertest)
+        #   - @app/web  → vitest (jsdom, App.test.tsx)
+        run: yarn test

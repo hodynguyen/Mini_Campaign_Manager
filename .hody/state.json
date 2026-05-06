@@ -1,0 +1,83 @@
+{
+  "workflow_id": "feat-scaffold-and-dev-env-20260506",
+  "feature": "F1 — Scaffold & Dev Environment",
+  "type": "new-feature",
+  "status": "completed",
+  "execution_mode": "guided",
+  "spec_confirmed": true,
+  "spec_file": "spec-scaffold-and-dev-env.md",
+  "log_file": "log-scaffold-and-dev-env.md",
+  "created_at": "2026-05-06T09:00:00Z",
+  "updated_at": "2026-05-06T10:55:00Z",
+  "phases": {
+    "THINK": {
+      "agents": ["architect"],
+      "completed": ["architect"],
+      "active": null,
+      "skipped": []
+    },
+    "BUILD": {
+      "agents": ["backend", "frontend", "devops"],
+      "completed": ["backend", "frontend", "devops"],
+      "active": null,
+      "skipped": []
+    },
+    "VERIFY": {
+      "agents": ["unit-tester", "code-reviewer"],
+      "completed": ["unit-tester", "code-reviewer"],
+      "active": null,
+      "skipped": []
+    },
+    "SHIP": {
+      "agents": [],
+      "completed": [],
+      "active": null,
+      "skipped": []
+    }
+  },
+  "phase_order": ["THINK", "BUILD", "VERIFY", "SHIP"],
+  "agent_log": [
+    {
+      "agent": "architect",
+      "phase": "THINK",
+      "completed_at": "2026-05-06T09:30:00Z",
+      "output_summary": "Locked root toolchain. Wrote tsconfig.base.json (TS 5.4 strict, moduleResolution=bundler), .eslintrc.cjs (ESLint 8.57 + @typescript-eslint 7.18 + prettier), .prettierrc, .editorconfig, .nvmrc=20, root package.json (yarn workspaces, pinned devDeps, dev/build/test/lint/format/db scripts), and packages/shared scaffold (placeholder export). No deviations from spec. Hand-off notes for backend/frontend/devops captured in log.",
+      "kb_files_modified": ["architecture.md", "log-scaffold-and-dev-env.md"]
+    },
+    {
+      "agent": "backend",
+      "phase": "BUILD",
+      "completed_at": "2026-05-06T10:00:00Z",
+      "output_summary": "Scaffolded apps/api: package.json (Express 4.21, Sequelize 6.37, zod, jwt/bcrypt/pg installed but unused per F1 scope), tsconfig.json (extends base, overrides module=CommonJS + moduleResolution=node — chose CommonJS over ESM to avoid jest+ESM fragility since BUILD agents can't run code to verify), jest.config.ts (ts-jest preset, node env), .eslintrc.cjs (extends root + jest env), .env.example, src/{index,app,config/env,routes/health}.ts, tests/health.test.ts. createApp() is testable factory (no listen). Health route does not touch DB. No business logic — F2 scope.",
+      "kb_files_modified": ["log-scaffold-and-dev-env.md"]
+    },
+    {
+      "agent": "frontend",
+      "phase": "BUILD",
+      "completed_at": "2026-05-06T10:15:00Z",
+      "output_summary": "Scaffolded apps/web: package.json (@app/web, type=module, pinned majors — react 18.3, react-router-dom 6.27, antd 5.21, @tanstack/react-query 5.59, zustand 4.5, axios 1.7, vite 5.4, vitest 2.1, RTL 16, jsdom 25), tsconfig.json (extends base, jsx=react-jsx, DOM libs, vite/vitest/jest-dom types, noEmit, references tsconfig.node.json), tsconfig.node.json (composite for vite.config.ts under tsc -b), vite.config.ts (unified Vite + Vitest config, jsdom + globals + setupFiles), .eslintrc.cjs (extends root + react/recommended + react-hooks/recommended), .env.example (VITE_API_BASE_URL optional), index.html, src/main.tsx (ConfigProvider → QueryClientProvider → BrowserRouter → App, antd reset.css imported), src/App.tsx (single / route → AntD <Result> placeholder; /login + /campaigns deferred to F4), src/App.test.tsx (vitest + RTL + MemoryRouter smoke), src/test-setup.ts (jest-dom matchers), src/lib/{api,queryClient}.ts, src/store/auth.ts (zustand skeleton). No business logic, no auth wiring, no real pages — F1 scope only.",
+      "kb_files_modified": ["log-scaffold-and-dev-env.md"]
+    },
+    {
+      "agent": "devops",
+      "phase": "BUILD",
+      "completed_at": "2026-05-06T10:30:00Z",
+      "output_summary": "Wrote docker-compose.yml (postgres:16-alpine only; user/pass/db = campaign/campaign/campaign matching apps/api/.env.example; healthcheck via pg_isready; named volume pgdata; restart unless-stopped). Wrote .github/workflows/ci.yml (single install-lint-test job on ubuntu-latest, node 20, yarn 1; triggers on push:main + pull_request; pinned actions/checkout@v4, actions/setup-node@v4 with cache:yarn, actions/cache@v4 for hoisted node_modules; concurrency cancel-in-progress; runs yarn install --frozen-lockfile + yarn lint + yarn test; no deploy job; no postgres service container since F1 /health test does not touch DB). Extended .gitignore with pgdata/, *.tsbuildinfo, apps/*/dist/, apps/*/coverage/, .yarn/. Sanity-checked root package.json scripts — yarn workspaces run dev/build/test fan out correctly to @app/api, @app/web (packages/shared has no dev/test scripts; yarn warn-skips). No Makefile (redundant with db:up/down). No production Dockerfiles (F1 runs apps as local processes per spec). No Redis/Adminer (deferred to F3). Credentials verified — zero mismatches between compose and api .env.example.",
+      "kb_files_modified": ["log-scaffold-and-dev-env.md"]
+    },
+    {
+      "agent": "unit-tester",
+      "phase": "VERIFY",
+      "completed_at": "2026-05-06T10:45:00Z",
+      "output_summary": "Ran first install (yarn install, 27.6s, lockfile generated). All 6 verification commands green: yarn lint (clean), yarn workspace @app/api test (1/1 passed — GET /health → 200 {ok:true}), yarn workspace @app/web test (1/1 passed — <App /> renders title), yarn workspace @app/api build (clean), yarn workspace @app/web build (clean, 311.77kB JS / 2.94kB CSS). Applied 4 tooling fixes (zero source code changes): (1) jest.config.ts → jest.config.js (avoid ts-node dep just to load config); (2) tsconfig.node.json: noEmit→emitDeclarationOnly+outDir (TS6310 — composite projects can't disable emit); (3) root package.json: workspaces nohoist for @testing-library/jest-dom (yarn 1 hoisting incompatibility — jest-dom hoisted but vitest didn't, so jest-dom/vitest entry couldn't resolve vitest); (4) added @testing-library/dom@^10 as explicit dev dep in apps/web (was unmet peer for RTL 16 + user-event 14). Locked root configs (tsconfig.base.json, root .eslintrc.cjs, .prettierrc, .editorconfig, .nvmrc) untouched per architect spec. All test/source files untouched. Spec acceptance criteria #1, #5, #6, #7 verified end-to-end. Lockfile is now committed-ready; CI's --frozen-lockfile will work on next push. Noted React Router v7 future-flag warnings as informational-only noise (F4 may silence). No blockers for code-reviewer.",
+      "kb_files_modified": ["log-scaffold-and-dev-env.md"]
+    },
+    {
+      "agent": "code-reviewer",
+      "phase": "VERIFY",
+      "completed_at": "2026-05-06T10:55:00Z",
+      "output_summary": "Verdict: APPROVED-WITH-NITS. Re-ran yarn lint (clean), yarn workspace @app/api test (1/1 PASS), yarn workspace @app/web test (1/1 PASS) — all green. Read every config + source + test file across root, apps/api, apps/web, packages/shared. No BLOCKERs. Findings: 1 HIGH (root README.md is 24-byte stub — DoD #5 + assignment Part 3 'How I Used Claude Code' both unmet, deferred to finalize), 2 MEDIUM (cors() with no options reflects Origin:* — fine for F1 dev, must lock origin in F2 when JWT lands; apps/api/.eslintrc.cjs has stale 'jest.config.ts' in ignorePatterns after unit-tester's rename), 4 LOW (packages/shared tsconfig has both outDir + noEmit cosmetic conflict; apps/api tsconfig inherits declaration/sourceMap but harmless; smoke test does not assert helmet/cors headers; deprecated transitive deps via jest+eslint+sequelize+bcrypt+jsdom not directly addressable). PRAISE: createApp factory cleanly testable, zod env loader exits-1-on-failure pattern is right primitive, .env.example placeholders correct (zero secret leak), workspace nohoist is canonical yarn 1 fix, all majors pinned exactly with no 'latest', tsconfig chain coherent base→workspace→node, docker-compose minimal with byte-parity creds vs apps/api/.env.example, NO F2/F3/F4 scope leakage (no User/Campaign models, no auth routes, no /login page, no production Dockerfiles). DoD outcome: 5 of 6 met; only README quick-start is deferred (correctly) to finalize step. Zero fixes applied during review (no BLOCKERs warranted code changes; HIGH is finalize-step work; MEDIUM/LOW documented for F2). Workflow status flipped from in_progress to verified — ready for SHIP / finalize.",
+      "kb_files_modified": ["log-scaffold-and-dev-env.md", "state.json"]
+    }
+  ]
+}
