@@ -1,12 +1,26 @@
 # Mini Campaign Manager — CI
 #
-# Minimal MVP pipeline for F1: install + lint + test on PR / push-to-main.
-# No deploy job — this repo is a take-home; deployment is out of scope.
+# Pipeline for F1 (scaffold) + F2 (auth): install -> lint -> DB-backed test on
+# every PR / push to main.
 #
-# Why no Postgres service container:
-#   F1's only api test is a /health smoke test that does not touch the DB
-#   (per backend agent's hand-off in log-scaffold-and-dev-env.md). When F2
-#   adds DB-backed tests, this workflow will need a `services.postgres` block.
+# F2 additions:
+#   - postgres:16-alpine service container (matches docker-compose.yml).
+#   - Service-level healthcheck (`pg_isready`) so the test step starts only
+#     after Postgres is ready to accept connections.
+#   - Pre-test step creates `campaign_test` (the postgres image's
+#     POSTGRES_DB only auto-creates ONE DB; integration tests need a
+#     dedicated test DB so truncates can never wipe `campaign`).
+#   - The test step writes apps/api/.env.test inline. The local file is
+#     gitignored (so reviewer machines aren't forced to commit secrets) and
+#     the api test infra (apps/api/tests/helpers/setup-{env,global,teardown}.ts)
+#     dotenv-loads from that path. Mirroring the file in CI is the smallest
+#     diff vs. patching the test infra.
+#   - Test-only env vars (JWT_SECRET, JWT_EXPIRES_IN, CORS_ORIGINS, both
+#     DATABASE_URLs) live as plain workflow env, NOT GitHub secrets:
+#       * they only authenticate the ephemeral postgres service container,
+#       * the JWT_SECRET signs tokens that exist for ~2 seconds inside the
+#         runner before the job tears down — there is no production blast
+#         radius. Promoting them to secrets would just obscure CI.
 
 name: CI
 
@@ -24,6 +38,28 @@ jobs:
   install-lint-test:
     name: install · lint · test
     runs-on: ubuntu-latest
+
+    # Postgres service container. GitHub Actions auto-networks it on the
+    # `postgres` hostname inside the job container, BUT this job runs
+    # directly on the runner (no job container), so the service is exposed
+    # on `localhost:<host-port>` instead. We pin host port 5432 to match
+    # the DATABASE_URL_TEST the api test infra expects.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: campaign
+          POSTGRES_PASSWORD: campaign
+          POSTGRES_DB: campaign
+        ports:
+          - 5432:5432
+        # Without the healthcheck the test step can race the daemon's
+        # initdb. Matches the healthcheck in docker-compose.yml.
+        options: >-
+          --health-cmd "pg_isready -U campaign -d campaign"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -51,13 +87,57 @@ jobs:
             ${{ runner.os }}-node20-modules-
 
       - name: Install dependencies
+        # --frozen-lockfile fails the build if yarn.lock would need to change.
+        # yarn.lock is committed; do NOT relax this without explicit reason.
         run: yarn install --frozen-lockfile
 
       - name: Lint
+        # Lint runs BEFORE test for fast feedback on style errors — a lint
+        # break shouldn't be gated behind a 5-second test boot.
         run: yarn lint
+
+      - name: Create test database (campaign_test)
+        # Postgres images only POSTGRES_DB-create ONE database. Tests need a
+        # second DB (`campaign_test`) so truncates can never touch `campaign`.
+        # Use psql inside an ephemeral postgres-client container so we don't
+        # have to apt-install postgresql-client on the runner. Connect to the
+        # default `postgres` admin DB to issue CREATE DATABASE.
+        env:
+          PGPASSWORD: campaign
+        run: |
+          docker run --rm \
+            --network host \
+            -e PGPASSWORD="$PGPASSWORD" \
+            postgres:16-alpine \
+            psql -h localhost -U campaign -d postgres \
+              -c 'CREATE DATABASE campaign_test OWNER campaign;'
+
+      - name: Write apps/api/.env.test for jest
+        # apps/api/.env.test is gitignored (per .gitignore "Env" block) so CI
+        # can't check it in. The api test infra (jest setupFiles +
+        # globalSetup + globalTeardown) dotenv-loads this exact path; mirroring
+        # the file inline is the smallest-diff fix.
+        # The values mirror apps/api/.env.example shape; JWT_SECRET is a
+        # dedicated 40-char ASCII test secret (>=32 char policy in env.ts).
+        run: |
+          cat > apps/api/.env.test <<'EOF'
+          NODE_ENV=test
+          DATABASE_URL=postgresql://campaign:campaign@localhost:5432/campaign
+          DATABASE_URL_TEST=postgresql://campaign:campaign@localhost:5432/campaign_test
+          JWT_SECRET=ci-test-secret-do-not-use-in-prod-aaaaaaaa
+          JWT_EXPIRES_IN=1h
+          CORS_ORIGINS=http://localhost:5173
+          PORT=4001
+          EOF
 
       - name: Test
         # Root `yarn test` fans out to workspaces:
-        #   - @app/api  → jest  (node env, /health supertest)
+        #   - @app/api  → jest --runInBand against postgres service container
+        #     (jest globalSetup runs umzug migrations against campaign_test)
         #   - @app/web  → vitest (jsdom, App.test.tsx)
+        # NODE_ENV=test is also set in .env.test above, but exported here as
+        # a defensive belt-and-braces against anything reading process.env
+        # before dotenv runs.
+        env:
+          NODE_ENV: test
         run: yarn test

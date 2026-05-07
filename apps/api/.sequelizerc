@@ -1,0 +1,19 @@
+/**
+ * .sequelizerc — paths used IF anyone falls back to `sequelize-cli` for ad-hoc
+ * tasks (e.g. scaffolding a migration template). The actual migration runner
+ * for this project is `src/db/migrate.ts` (umzug-based), wired to
+ * `yarn workspace @app/api migrate` — see ADR-008 in decisions.md for why.
+ *
+ * sequelize-cli reads this file even though we don't use it for `db:migrate`.
+ * Keeping it lets contributors do `yarn sequelize-cli migration:generate ...`
+ * without surprise, and the generated TS file lands in the same folder umzug
+ * already scans.
+ */
+const path = require('path');
+
+module.exports = {
+  config: path.resolve(__dirname, 'src/db/sequelize.ts'),
+  'models-path': path.resolve(__dirname, 'src/db/models'),
+  'seeders-path': path.resolve(__dirname, 'src/db/seeders'),
+  'migrations-path': path.resolve(__dirname, 'migrations'),
+};

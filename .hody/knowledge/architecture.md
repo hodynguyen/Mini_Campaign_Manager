@@ -149,3 +149,177 @@ to make `open_rate` non-zero during demo.
 
 ### Deviations from spec-scaffold-and-dev-env.md
 None. All choices match the spec's "Locked tech decisions" table. The spec listed eslint 8 + @typescript-eslint and prettier 3 — I pinned exact patch versions and chose `moduleResolution: bundler` (spec didn't specify; this matches Vite + tsx ergonomics).
+
+---
+
+## F2 Auth — Locked Decisions
+
+> Author: architect (THINK phase, F2). Date: 2026-05-06.
+> Scope: tooling + scaffold contracts that BUILD must follow without redeciding.
+> Spec: `.hody/knowledge/spec-auth.md`.
+
+### File map (apps/api delta — created by THINK as skeletons; BUILD fills bodies)
+
+```
+apps/api/
+├── .sequelizerc                          [THINK] CLI helper paths only — runtime
+│                                                  uses umzug-direct (NOT sequelize-cli).
+├── migrations/
+│   └── 0001-create-users.ts              [BUILD] CREATE EXTENSION citext + pgcrypto;
+│                                                  CREATE TABLE users (...). Spec §"Data model".
+├── src/
+│   ├── db/
+│   │   ├── sequelize.ts                  [THINK] Singleton + pingDatabase().
+│   │   ├── migrate.ts                    [THINK] Umzug-direct CLI runner.
+│   │   └── models/
+│   │       └── User.ts                   [BUILD] Sequelize model. underscored:true.
+│   ├── auth/
+│   │   ├── routes.ts                     [BUILD] Express Router; mounts /register, /login.
+│   │   ├── controller.ts                 [BUILD] Thin: parse(zod) -> service -> 201/200.
+│   │   ├── service.ts                    [BUILD] hashPassword/verifyPassword/createUser/
+│   │   │                                          signToken/findByEmailLower.
+│   │   └── middleware.ts                 [BUILD] requireAuth(req,res,next). Not mounted in F2.
+│   ├── errors/
+│   │   ├── AppError.ts                   [THINK] Base + 5 subclasses (400/401/403/404/409).
+│   │   └── handler.ts                    [THINK] Express error handler — full dispatch table.
+│   ├── schemas/
+│   │   └── auth.schema.ts                [BUILD] zod registerSchema, loginSchema. z.infer types.
+│   ├── routes/
+│   │   └── health.ts                     [BUILD-EDIT] Add DB ping; 200 {ok:true,db:'up'}
+│   │                                                  | 503 {ok:false,db:'down'}.
+│   ├── app.ts                            [BUILD-EDIT] Lock cors() to env.CORS_ORIGINS;
+│   │                                                  mount /auth; replace generic 500
+│   │                                                  with errors/handler.ts.
+│   └── config/env.ts                     [THINK] Added JWT_SECRET, JWT_EXPIRES_IN,
+│                                                  CORS_ORIGINS (CSV->string[]),
+│                                                  DATABASE_URL_TEST (required when test).
+└── tests/
+    ├── helpers/
+    │   ├── db.ts                         [BUILD] truncate-all helper for afterEach.
+    │   └── server.ts                     [BUILD] boot createApp() + run migrations once.
+    ├── auth.register.test.ts             [TEST]  register happy / dup / invalid.
+    ├── auth.login.test.ts                [TEST]  login happy / wrong password.
+    └── auth.middleware.test.ts           [TEST]  requireAuth missing/bad token.
+
+packages/shared/src/index.ts              [THINK] Pure-type exports: User,
+                                                  RegisterRequest, LoginRequest,
+                                                  AuthResponse, ApiError.
+```
+
+### Error class hierarchy
+
+```
+AppError(status, { code, message, details? })
+ ├── ValidationError    -> 400
+ ├── UnauthorizedError  -> 401
+ ├── ForbiddenError     -> 403
+ ├── NotFoundError      -> 404
+ └── ConflictError      -> 409
+```
+
+Mapping table in `errors/handler.ts`:
+
+| Source                        | HTTP | code (default)        | Notes                                           |
+|-------------------------------|------|-----------------------|-------------------------------------------------|
+| `ZodError`                    | 400  | `VALIDATION_ERROR`    | `details` = `err.issues` (BUILD trims to {path,message}). |
+| `AppError` subclass           | own  | own                   | `err.code`/`err.message`/`err.details`.         |
+| `UniqueConstraintError`       | 409  | `UNIQUE_CONSTRAINT`   | Service layer should catch & rethrow as `ConflictError({code:'EMAIL_TAKEN'})`. |
+| `TokenExpiredError`           | 401  | `TOKEN_EXPIRED`       | Lets clients distinguish from invalid token.    |
+| `JsonWebTokenError`           | 401  | `INVALID_TOKEN`       |                                                 |
+| anything else                 | 500  | `INTERNAL`            | Logs internally; never leaks `err.message`.     |
+
+### Migration tooling — umzug-direct, NOT sequelize-cli
+
+**Decision:** Run migrations through a small `src/db/migrate.ts` script that wraps `umzug` directly. Wired via:
+
+```
+yarn workspace @app/api migrate          # umzug.up()
+yarn workspace @app/api migrate:undo     # umzug.down() (last only)
+yarn workspace @app/api migrate:status   # list executed/pending
+```
+
+**Why over the spec's "sequelize-cli with TS migrations":**
+
+1. We're CommonJS in `apps/api`. `sequelize-cli` + TS migrations needs either
+   `sequelize-cli-typescript` (community fork, sporadic upkeep) or a `babel-register`
+   hook in `.sequelizerc`. Both add fragility BUILD can't iterate on without
+   running code (same constraint that drove F1's CJS-over-ESM choice).
+2. `umzug` is what `sequelize-cli` wraps internally. Calling it directly with
+   `tsx src/db/migrate.ts` skips the CLI's config-loader gymnastics — `.ts`
+   files load as-is, no babel.
+3. We still ship `.sequelizerc` so contributors who run `sequelize-cli migration:generate`
+   for ad-hoc scaffolding land files in the right folder. Just not as the runtime.
+
+The deviation is documented as **ADR-008** in decisions.md.
+
+### Schemas-vs-types split — types in shared, schemas in api (Option B)
+
+**Decision:** Pure TS interfaces (no zod) in `packages/shared/src/index.ts`.
+Zod schemas live in `apps/api/src/schemas/auth.schema.ts` and validate inputs
+inside the api workspace only.
+
+**Why over Option A (zod schemas in shared, `z.infer` re-exported):**
+
+- `@app/shared` would have to ship `zod` as a runtime dependency. The web app
+  would then drag zod into its bundle just to read types — wasteful.
+- Shared is currently consumed as TS source (no build step). Adding a runtime
+  import means we either build shared (more tooling) or accept the bundler
+  pulling zod into `apps/web` (bigger bundle).
+- Hand-keeping interfaces and zod schemas in sync is cheap for this surface
+  (5 types, 2 schemas in F2). The integration tests catch any drift —
+  `auth.register.test.ts` exercises the registerSchema + the User type both,
+  through the wire.
+
+The deviation is documented as **ADR-010** in decisions.md.
+
+### JWT payload shape (locked)
+
+```ts
+// signed in apps/api/src/auth/service.ts via jsonwebtoken@9
+{
+  sub:   string,   // User.id (uuid)
+  email: string    // User.email — not strictly needed but lets requireAuth
+                   //              attach req.user without a DB round-trip.
+}
+// Algo:    HS256
+// Secret:  env.JWT_SECRET (>=32 chars in production)
+// ExpIn:   env.JWT_EXPIRES_IN (default '24h')
+```
+
+`requireAuth` in `apps/api/src/auth/middleware.ts`:
+- Reads `Authorization: Bearer <jwt>`.
+- Verifies with `jsonwebtoken.verify(token, env.JWT_SECRET)`.
+- On success: `req.user = { id: payload.sub, email: payload.email }` and `next()`.
+- On missing/invalid/expired: throw `UnauthorizedError({ code: 'UNAUTHORIZED' })`
+  for missing header — let `JsonWebTokenError`/`TokenExpiredError` from `verify`
+  propagate so `errors/handler.ts` maps them per the table above.
+- BUILD adds the `req.user` typing via a module augmentation file (e.g. `src/types/express.d.ts`).
+- Not mounted on any route in F2 — F3 will use it on `/campaigns/*` and `/recipients/*`.
+
+### env.ts schema additions (locked)
+
+| Var                  | Type                | Default                   | Required when      |
+|----------------------|---------------------|---------------------------|--------------------|
+| `JWT_SECRET`         | string (>=32 in prod) | —                       | always             |
+| `JWT_EXPIRES_IN`     | string              | `'24h'`                   | optional           |
+| `CORS_ORIGINS`       | string[] (CSV)      | `['http://localhost:5173']` | optional         |
+| `DATABASE_URL_TEST`  | string              | —                         | NODE_ENV=test only |
+
+The CSV transform happens in zod (`.transform`) so consumers always read
+`env.CORS_ORIGINS` as `string[]`, never split it themselves.
+
+### Test DB strategy (heads-up for integration-tester)
+
+- `NODE_ENV=test` switches `sequelize.ts` to use `DATABASE_URL_TEST`.
+- Global setup (`tests/helpers/server.ts`) calls `runMigrations()` once.
+- `afterEach` truncates all tables (helper in `tests/helpers/db.ts`) — preserves the schema, wipes rows.
+- CI gets a `services.postgres` block in `.github/workflows/ci.yml` (devops's job).
+
+### Deviations from spec-auth.md
+
+- **Migration tooling**: spec said sequelize-cli; I ship umzug-direct. Reason
+  in ADR-008. The acceptance criterion "yarn migrate runs the User migration
+  cleanly" still holds — only the runner under the hood changed.
+- **Schemas vs types**: spec hints both options without picking; I pick Option B
+  (types-in-shared, schemas-in-api) for bundle hygiene. ADR-010.
+- Everything else matches spec exactly.

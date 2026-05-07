@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "built_at": "2026-05-06T16:09:10Z",
+  "built_at": "2026-05-07T03:48:53Z",
   "entries": [
     {
       "file": "api-contracts.md",
@@ -101,7 +101,7 @@
     },
     {
       "file": "architecture.md",
-      "total_lines": 151,
+      "total_lines": 325,
       "has_frontmatter": true,
       "tags": [
         "architecture",
@@ -177,6 +177,51 @@
           "heading": "Deviations from spec-scaffold-and-dev-env.md",
           "level": 3,
           "line": 143
+        },
+        {
+          "heading": "F2 Auth \u2014 Locked Decisions",
+          "level": 2,
+          "line": 148
+        },
+        {
+          "heading": "File map (apps/api delta \u2014 created by THINK as skeletons; BUILD fills bodies)",
+          "level": 3,
+          "line": 154
+        },
+        {
+          "heading": "Error class hierarchy",
+          "level": 3,
+          "line": 202
+        },
+        {
+          "heading": "Migration tooling \u2014 umzug-direct, NOT sequelize-cli",
+          "level": 3,
+          "line": 224
+        },
+        {
+          "heading": "Schemas-vs-types split \u2014 types in shared, schemas in api (Option B)",
+          "level": 3,
+          "line": 248
+        },
+        {
+          "heading": "JWT payload shape (locked)",
+          "level": 3,
+          "line": 268
+        },
+        {
+          "heading": "env.ts schema additions (locked)",
+          "level": 3,
+          "line": 292
+        },
+        {
+          "heading": "Test DB strategy (heads-up for integration-tester)",
+          "level": 3,
+          "line": 304
+        },
+        {
+          "heading": "Deviations from spec-auth.md",
+          "level": 3,
+          "line": 311
         }
       ]
     },
@@ -277,7 +322,7 @@
     },
     {
       "file": "decisions.md",
-      "total_lines": 134,
+      "total_lines": 274,
       "has_frontmatter": true,
       "tags": [
         "decisions",
@@ -327,6 +372,87 @@
           "heading": "ADR-007: F1 scope guards \u2014 what is intentionally NOT here",
           "level": 2,
           "line": 117
+        },
+        {
+          "heading": "ADR-008: Migrations via `umzug` directly, not `sequelize-cli`",
+          "level": 2,
+          "line": 129
+        },
+        {
+          "heading": "ADR-009: Shared types in `@app/shared`, zod schemas in `apps/api`",
+          "level": 2,
+          "line": 164
+        },
+        {
+          "heading": "ADR-010: bcrypt cost factor = 10",
+          "level": 2,
+          "line": 195
+        },
+        {
+          "heading": "ADR-011: JWT shape, signing, and expiry",
+          "level": 2,
+          "line": 228
+        }
+      ]
+    },
+    {
+      "file": "log-auth.md",
+      "total_lines": 312,
+      "has_frontmatter": true,
+      "tags": [
+        "log",
+        "api-endpoint",
+        "auth"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "in_progress",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Feature Log: F2 \u2014 Auth (User model, register/login, JWT middleware)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Spec",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Agent Work",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "architect \u2014 F2 auth scaffolding",
+          "level": 3,
+          "line": 12
+        },
+        {
+          "heading": "backend \u2014 F2 auth implementation",
+          "level": 3,
+          "line": 79
+        },
+        {
+          "heading": "integration-tester \u2014 F2 auth tests",
+          "level": 3,
+          "line": 124
+        },
+        {
+          "heading": "code-reviewer \u2014 F2 security review",
+          "level": 3,
+          "line": 187
+        },
+        {
+          "heading": "devops \u2014 F2 CI wiring",
+          "level": 3,
+          "line": 240
+        },
+        {
+          "heading": "Summary (finalize)",
+          "level": 2,
+          "line": 264
         }
       ]
     },
@@ -473,6 +599,83 @@
       ]
     },
     {
+      "file": "spec-auth.md",
+      "total_lines": 208,
+      "has_frontmatter": true,
+      "tags": [
+        "spec",
+        "api-endpoint",
+        "auth",
+        "security"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "implemented",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Spec: F2 \u2014 Auth (User model, register, login, JWT middleware)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Requirements",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Technical Design",
+          "level": 2,
+          "line": 43
+        },
+        {
+          "heading": "Data model",
+          "level": 3,
+          "line": 45
+        },
+        {
+          "heading": "File map (apps/api delta)",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "`packages/shared` delta",
+          "level": 3,
+          "line": 102
+        },
+        {
+          "heading": "Locked tech decisions",
+          "level": 3,
+          "line": 137
+        },
+        {
+          "heading": "Key business rules to enforce",
+          "level": 3,
+          "line": 152
+        },
+        {
+          "heading": "Out of Scope",
+          "level": 2,
+          "line": 162
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 2,
+          "line": 173
+        },
+        {
+          "heading": "Definition of Done",
+          "level": 2,
+          "line": 190
+        }
+      ]
+    },
+    {
       "file": "spec-scaffold-and-dev-env.md",
       "total_lines": 187,
       "has_frontmatter": true,
@@ -552,7 +755,7 @@
     },
     {
       "file": "tech-debt.md",
-      "total_lines": 14,
+      "total_lines": 46,
       "has_frontmatter": true,
       "tags": [
         "tech-debt",
@@ -569,9 +772,29 @@
           "line": 1
         },
         {
-          "heading": "(no entries yet)",
+          "heading": "F2 Auth \u2014 code-reviewer findings (2026-05-07)",
           "level": 2,
           "line": 7
+        },
+        {
+          "heading": "MEDIUM \u2014 Login brute-force rate-limit",
+          "level": 3,
+          "line": 16
+        },
+        {
+          "heading": "MEDIUM \u2014 `JWT_EXPIRES_IN` env not regex-validated",
+          "level": 3,
+          "line": 23
+        },
+        {
+          "heading": "MEDIUM \u2014 Full Zod `err.issues` echoed back as error `details`",
+          "level": 3,
+          "line": 29
+        },
+        {
+          "heading": "LOW \u2014 `Authorization` header scheme is case-sensitive",
+          "level": 3,
+          "line": 35
         }
       ]
     }

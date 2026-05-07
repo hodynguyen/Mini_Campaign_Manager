@@ -2,43 +2,58 @@
  * Express app factory.
  *
  * createApp() returns a configured Express instance WITHOUT calling listen().
- * This keeps the app importable from tests (supertest needs the app, not a
- * live socket) and from index.ts (which owns the listen call).
+ * Tests import this (supertest needs the app, not a live socket); index.ts
+ * owns the actual `listen` call.
  *
- * F1 scope: middleware stack + /health route + a generic error handler.
- * Auth, validation, domain routes land in F2/F3.
+ * Middleware order (matters):
+ *   helmet  -> security headers first
+ *   cors    -> CORS preflight + headers (env-driven allowlist)
+ *   morgan  -> request logger
+ *   express.json -> body parser
+ *   /auth, /health -> routes
+ *   errorHandler -> LAST (4-arg signature; Express recognizes by arity)
+ *
+ * F2 changes vs F1:
+ *   - cors() locked to env.CORS_ORIGINS allowlist (not wildcard).
+ *   - /auth router mounted (register/login).
+ *   - Inline 500 handler replaced with the rich `errorHandler` from
+ *     ./errors/handler (Zod / AppError / Sequelize / JWT dispatch table).
  */
 import cors from 'cors';
-import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import express, { type Express } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import authRouter from './auth/routes';
+import { env } from './config/env';
+import { errorHandler } from './errors/handler';
 import healthRouter from './routes/health';
 
 export function createApp(): Express {
   const app = express();
 
-  // Security + logging + parsing middleware. Order matters: helmet first for
-  // headers, then cors, then logger, then body parser.
   app.use(helmet());
-  app.use(cors());
+  app.use(
+    cors({
+      origin: env.CORS_ORIGINS,
+      credentials: false,
+    }),
+  );
   app.use(morgan('dev'));
-  app.use(express.json());
+  // Cap request bodies. Express's default limit is 100kb but documenting it
+  // explicitly here pins the contract so future changes don't silently raise
+  // it (DOS surface). All current endpoints accept tiny JSON payloads
+  // (auth credentials, campaign metadata).
+  app.use(express.json({ limit: '100kb' }));
 
   // Routes
+  app.use('/auth', authRouter);
   app.use('/health', healthRouter);
 
-  // Generic 500 handler. F2 will replace this with a richer error mapper
-  // (zod validation errors, domain errors, sequelize errors, etc.).
-  // The 4-arg signature is required for Express to recognize this as an
-  // error-handling middleware — `_next` is intentionally unused.
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    // eslint-disable-next-line no-console
-    console.error('[unhandled error]', err);
-    res.status(500).json({
-      error: { code: 'INTERNAL', message: 'Internal Server Error' },
-    });
-  });
+  // Global error handler — must be last and must have the 4-arg signature so
+  // Express dispatches errors here. See ./errors/handler for the dispatch
+  // table (Zod / AppError / UniqueConstraintError / JWT errors / fallback).
+  app.use(errorHandler);
 
   return app;
 }

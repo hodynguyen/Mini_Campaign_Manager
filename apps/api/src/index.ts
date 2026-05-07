@@ -1,16 +1,33 @@
 /**
  * Process entrypoint for @app/api.
  *
- * Loads env (which validates and exits on failure), constructs the app, and
- * binds the HTTP listener. Tests should import `createApp` directly from
- * `./app` — never this file — so they don't open a real port.
+ * Boot sequence:
+ *   1. Validate env (already done at config/env import time — exits on bad config).
+ *   2. Ping the DB. Fail fast (exit 1) if unreachable.
+ *   3. Build the Express app and start listening.
+ *
+ * Tests import `createApp` from `./app` directly — never this file — so they
+ * never open a real port and never trigger the DB ping at startup. Tests own
+ * their own DB lifecycle (migrations + truncate, see tests/helpers).
  */
 import { createApp } from './app';
 import { env } from './config/env';
+import { pingDatabase } from './db/sequelize';
+// Side-effect import: registers the User model on the sequelize instance.
+// Without this import, Sequelize wouldn't know about the model at runtime.
+import './db/models/User';
 
-const app = createApp();
+(async (): Promise<void> => {
+  const ok = await pingDatabase();
+  if (!ok) {
+    // eslint-disable-next-line no-console
+    console.error('[api] DB connection failed at boot — exiting.');
+    process.exit(1);
+  }
 
-app.listen(env.PORT, () => {
-  // eslint-disable-next-line no-console
-  console.info(`[api] listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
-});
+  const app = createApp();
+  app.listen(env.PORT, () => {
+    // eslint-disable-next-line no-console
+    console.info(`[api] listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
+  });
+})();
