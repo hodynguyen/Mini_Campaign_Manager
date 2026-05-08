@@ -210,7 +210,7 @@ export default function CampaignActions({
           loading: scheduleMutation.isPending,
           disabled: !scheduleValue,
         }}
-        destroyOnClose
+        destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
           Pick a future date and time. The send worker will pick it up at that

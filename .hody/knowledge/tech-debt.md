@@ -116,17 +116,25 @@ status: active
 - **Fix shape:** wrap the app in `<App>` from `antd` (a sibling of `ConfigProvider`) and use `App.useApp().notification` from inside components. ~10 LOC change.
 - **When:** any time a theming feature lands (dark mode, brand colors). Not worth the churn for F5.
 
-### LOW — `destroyOnClose` is deprecated in AntD v5 (use `destroyOnHidden`)
+### ~~LOW — `destroyOnClose` is deprecated in AntD v5 (use `destroyOnHidden`)~~ — RESOLVED IN F6
+- **Status:** RESOLVED (2026-05-08, F6 frontend).
 - **Where:** `apps/web/src/components/CampaignActions.tsx` Schedule `<Modal destroyOnClose>`.
 - **Issue:** AntD v5 emits a deprecation warning during the F5 send-flow test ("`destroyOnClose` is deprecated. Please use `destroyOnHidden` instead.") The current prop still works at runtime, but the warning will surface in production console too.
-- **Fix shape:** rename `destroyOnClose` → `destroyOnHidden`. One-line change.
-- **When:** F6 polish. Trivial.
+- **Resolution:** Renamed `destroyOnClose` → `destroyOnHidden` on the
+  Schedule `<Modal>` (line 213). Confirmed the deprecation warning no
+  longer surfaces in `yarn workspace @app/web test` output. 8/8 web tests
+  still pass; build + lint clean.
 
-### LOW — 401 redirect-loop guard uses `startsWith('/login')`
+### ~~LOW — 401 redirect-loop guard uses `startsWith('/login')`~~ — RESOLVED IN F6
+- **Status:** RESOLVED (2026-05-08, F6 frontend).
 - **Where:** `apps/web/src/lib/api.ts:55`.
 - **Issue:** Loop guard does `!window.location.pathname.startsWith('/login')`. If a future route ever uses `/login-something` as a path prefix, this would silently skip the redirect on a 401 there. The app has no such route today, so the risk is theoretical.
-- **Fix shape:** use `pathname === '/login'` (exact) since `/login` is the only login-family route.
-- **When:** trivial; pick up next time `lib/api.ts` is touched.
+- **Resolution:** Replaced the `startsWith` check with exact-equality on
+  both public routes: `pathname !== '/login' && pathname !== '/register'`.
+  Extending the guard to `/register` (the second public route in the F5
+  routing shell) is symmetric and prevents a 401 fired during the
+  register flow's auto-login leg from booting the user mid-form. 8/8 web
+  tests still pass; build + lint clean.
 
 ### LOW — Per-page `extractApiError` + `alertProps` duplication
 - **Where:** `apps/web/src/pages/{LoginPage,RegisterPage,CampaignsListPage,CampaignNewPage,CampaignDetailPage}.tsx`.

@@ -12,7 +12,8 @@
     "lint": "eslint . --ext .ts",
     "migrate": "tsx src/db/migrate.ts up",
     "migrate:undo": "tsx src/db/migrate.ts down",
-    "migrate:status": "tsx src/db/migrate.ts status"
+    "migrate:status": "tsx src/db/migrate.ts status",
+    "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

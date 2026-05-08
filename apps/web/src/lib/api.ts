@@ -49,12 +49,14 @@ api.interceptors.response.use(
   (err) => {
     if (err?.response?.status === 401) {
       useAuthStore.getState().logout();
-      // Avoid a redirect loop while already on /login.
-      if (
-        typeof window !== 'undefined' &&
-        !window.location.pathname.startsWith('/login')
-      ) {
-        window.location.href = '/login';
+      // Avoid a redirect loop while already on /login or /register (the two
+      // public routes). Use exact equality so paths like `/login-foo` still
+      // redirect.
+      if (typeof window !== 'undefined') {
+        const pathname = window.location.pathname;
+        if (pathname !== '/login' && pathname !== '/register') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(err);

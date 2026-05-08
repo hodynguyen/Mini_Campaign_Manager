@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "built_at": "2026-05-08T08:05:00Z",
+  "built_at": "2026-05-08T08:24:23Z",
   "entries": [
     {
       "file": "api-contracts.md",
@@ -669,6 +669,53 @@
       ]
     },
     {
+      "file": "log-final-polish.md",
+      "total_lines": 280,
+      "has_frontmatter": true,
+      "tags": [
+        "log",
+        "polish",
+        "seed",
+        "readme"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "completed",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Feature Log: F6 \u2014 Seed + final README + spec-verify",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Spec",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Agent Work",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "backend \u2014 F6 seed script",
+          "level": 3,
+          "line": 12
+        },
+        {
+          "heading": "frontend \u2014 F6 polish nits",
+          "level": 3,
+          "line": 115
+        },
+        {
+          "heading": "spec-verifier \u2014 F6 final audit",
+          "level": 3,
+          "line": 209
+        }
+      ]
+    },
+    {
       "file": "log-frontend-pages.md",
       "total_lines": 213,
       "has_frontmatter": true,
@@ -1076,6 +1123,59 @@
       ]
     },
     {
+      "file": "spec-final-polish.md",
+      "total_lines": 104,
+      "has_frontmatter": true,
+      "tags": [
+        "spec",
+        "polish",
+        "seed",
+        "readme",
+        "spec-verify"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "implemented",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Spec: F6 \u2014 Seed + final README + spec-verify",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Requirements",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "File map",
+          "level": 2,
+          "line": 48
+        },
+        {
+          "heading": "Out of Scope (intentional)",
+          "level": 2,
+          "line": 63
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 2,
+          "line": 71
+        },
+        {
+          "heading": "Definition of Done",
+          "level": 2,
+          "line": 83
+        }
+      ]
+    },
+    {
       "file": "spec-frontend-pages.md",
       "total_lines": 144,
       "has_frontmatter": true,
@@ -1311,8 +1411,119 @@
       ]
     },
     {
+      "file": "submission-checklist.md",
+      "total_lines": 473,
+      "has_frontmatter": true,
+      "tags": [
+        "submission",
+        "audit",
+        "spec-verify"
+      ],
+      "author_agent": "spec-verifier",
+      "created": null,
+      "status": "final",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Submission Checklist \u2014 Mini Campaign Manager",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Part 1 \u2014 Backend (Node.js + PostgreSQL)",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "1.1 Schema design",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "User table",
+          "level": 4,
+          "line": 13
+        },
+        {
+          "heading": "Campaign table",
+          "level": 4,
+          "line": 27
+        },
+        {
+          "heading": "Recipient table",
+          "level": 4,
+          "line": 47
+        },
+        {
+          "heading": "CampaignRecipient table",
+          "level": 4,
+          "line": 59
+        },
+        {
+          "heading": "1.2 API endpoints (REST)",
+          "level": 3,
+          "line": 72
+        },
+        {
+          "heading": "1.3 Business rules",
+          "level": 3,
+          "line": 162
+        },
+        {
+          "heading": "1.4 Tech requirements",
+          "level": 3,
+          "line": 208
+        },
+        {
+          "heading": "Part 2 \u2014 Frontend (React + TypeScript)",
+          "level": 2,
+          "line": 240
+        },
+        {
+          "heading": "2.1 Pages",
+          "level": 3,
+          "line": 242
+        },
+        {
+          "heading": "2.2 UI features",
+          "level": 3,
+          "line": 267
+        },
+        {
+          "heading": "2.3 Tech requirements",
+          "level": 3,
+          "line": 300
+        },
+        {
+          "heading": "Part 3 \u2014 AI usage showcase",
+          "level": 2,
+          "line": 318
+        },
+        {
+          "heading": "Evaluation criteria \u2014 strongest evidence",
+          "level": 2,
+          "line": 356
+        },
+        {
+          "heading": "Submission instructions",
+          "level": 2,
+          "line": 411
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 437
+        },
+        {
+          "heading": "What the README finalize step MUST add (consolidated from the \u26a0\ufe0f above)",
+          "level": 3,
+          "line": 453
+        }
+      ]
+    },
+    {
       "file": "tech-debt.md",
-      "total_lines": 135,
+      "total_lines": 143,
       "has_frontmatter": true,
       "tags": [
         "tech-debt",
@@ -1394,19 +1605,19 @@
           "line": 106
         },
         {
-          "heading": "LOW \u2014 `destroyOnClose` is deprecated in AntD v5 (use `destroyOnHidden`)",
+          "heading": "~~LOW \u2014 `destroyOnClose` is deprecated in AntD v5 (use `destroyOnHidden`)~~ \u2014 RESOLVED IN F6",
           "level": 3,
           "line": 112
         },
         {
-          "heading": "LOW \u2014 401 redirect-loop guard uses `startsWith('/login')`",
+          "heading": "~~LOW \u2014 401 redirect-loop guard uses `startsWith('/login')`~~ \u2014 RESOLVED IN F6",
           "level": 3,
-          "line": 118
+          "line": 121
         },
         {
           "heading": "LOW \u2014 Per-page `extractApiError` + `alertProps` duplication",
           "level": 3,
-          "line": 124
+          "line": 132
         }
       ]
     }
