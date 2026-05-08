@@ -16,6 +16,19 @@
  *   - DATABASE_URL_TEST      — separate DB URL for tests. Required when
  *                              NODE_ENV=test, ignored otherwise. Prevents
  *                              tests from truncating the dev DB.
+ *
+ * F4 additions:
+ *   - SEND_SUCCESS_RATE      — float in [0, 1], default 0.8. Per-recipient
+ *                              probability that the simulated send marks the
+ *                              row `sent` (vs `failed`). Per business-rules.md
+ *                              "Random outcome per recipient". Tests can
+ *                              override per-spec for deterministic outcomes
+ *                              (e.g. 1.0 = all sent, 0.0 = all failed).
+ *   - SEND_WORKER_DELAY_MS   — non-negative integer ms. Default 0. Optional
+ *                              artificial latency injected by the worker
+ *                              before flipping campaign status; lets tests
+ *                              observe the `sending` state if they want to.
+ *                              Production leaves this at 0.
  */
 import 'dotenv/config';
 import { z } from 'zod';
@@ -53,6 +66,19 @@ const BaseEnvSchema = z.object({
         .map((o) => o.trim())
         .filter((o) => o.length > 0),
     ),
+
+  // F4 — async send simulation knobs.
+  // SEND_SUCCESS_RATE: per-recipient sent probability. coerce.number() turns
+  // the inbound CSV string ("0.8") into a JS number. min(0)/max(1) clamps it
+  // to a real probability — out-of-range envs fail boot rather than silently
+  // produce nonsense ratios. Default 0.8 matches the spec's documented
+  // 80/20 split.
+  SEND_SUCCESS_RATE: z.coerce.number().min(0).max(1).default(0.8),
+
+  // SEND_WORKER_DELAY_MS: optional artificial delay inside the worker.
+  // int().min(0) rejects fractional ms / negative values at boot.
+  // Default 0 = no artificial delay (production behavior).
+  SEND_WORKER_DELAY_MS: z.coerce.number().int().min(0).default(0),
 });
 
 const EnvSchema = BaseEnvSchema.superRefine((cfg, ctx) => {

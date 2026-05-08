@@ -33,21 +33,79 @@ status: active
 
 ## ADR-002: Async send simulation strategy
 
-- **Date**: 2026-05-06
-- **Status**: proposed (architect to confirm)
+- **Date**: 2026-05-06 (proposed) → 2026-05-08 (accepted, F4 think)
+- **Status**: accepted (during F4 think)
 - **Context**: `POST /campaigns/:id/send` must be **asynchronous** per brief.
   Two reasonable approaches given a 4–8h budget.
-- **Decision (proposed):** Use in-process background work via `setImmediate` +
-  promise chain. Endpoint responds 202 Accepted immediately; worker writes
-  CampaignRecipient rows and flips Campaign.status=sent when done.
-- **Alternatives:**
-  - **BullMQ + Redis**: production-grade, "nice-to-have" per JD. Adds Redis to
-    docker-compose. Worth it only if remaining time allows.
+- **Decision (accepted):** In-process background work via Node's
+  `setImmediate`. The controller responds 202 Accepted FIRST, then schedules
+  the worker on the next event-loop tick:
+
+  ```ts
+  // apps/api/src/campaigns/controller.ts (F4)
+  const result = await sendCampaignSvc(userId, id);  // atomic state flip
+  res.status(202).json(result);                       // commit response FIRST
+  setImmediate(() => {
+    runSendWorker(id).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[send-worker]', { id, err });
+    });
+  });
+  ```
+
+  The worker (`apps/api/src/campaigns/worker.ts`) buckets pending CR rows
+  into `sentIds` / `failedIds` via `Math.random() < env.SEND_SUCCESS_RATE`,
+  issues at most 2 bulk `UPDATE campaign_recipients` queries (one per
+  outcome), then atomically flips `campaigns.status` `sending` → `sent` ONLY
+  if still `sending`. Top-level try/catch prevents the api process from
+  ever crashing on a worker failure — the campaign just stays in `sending`
+  state, which is a recoverable observable condition rather than a data
+  corruption.
+
+- **Awaitable test variant — `runSendWorkerForTests(campaignId)`:**
+  Same body as `runSendWorker`, but throws on error so integration tests
+  can assert deterministic outcomes without the polling-with-timeout
+  pattern. Tests import the function directly (NOT through the route) and
+  `await` it synchronously after seeding state. Two distinct names so that
+  production code can never accidentally serialize a request behind the
+  worker. Tests can also override `SEND_SUCCESS_RATE` via env to make
+  outcomes deterministic (1.0 = all sent, 0.0 = all failed).
+
+- **Atomic state transitions** (closes the F3 carry-forward MEDIUM in
+  tech-debt.md): both `scheduleCampaign` and `sendCampaign` use
+  `UPDATE campaigns SET ... WHERE id=:id AND created_by=:userId AND status
+  IN (...)`. The `affectedRows === 1` check + a follow-up SELECT
+  distinguishes 404 (CAMPAIGN_NOT_FOUND, missing or foreign tenant) from
+  409 (CAMPAIGN_NOT_SCHEDULABLE / CAMPAIGN_NOT_SENDABLE, exists-but-wrong-
+  state). The state guard is now a SQL-level invariant, NOT a JS read-
+  modify-write — concurrent transitions are impossible to race past.
+
+- **Alternatives considered:**
+  - **BullMQ + Redis**: production-grade, "nice-to-have" per JD. Adds Redis
+    to docker-compose, a worker process, and a job-state DB. Rejected: the
+    brief says "simulate", not "production-grade". The setImmediate pattern
+    encapsulated in `worker.ts` swaps cleanly to a queue later — same
+    function signature, different scheduler.
+  - **Inline await + 200**: rejected. Defeats the brief's "async" requirement
+    and ties response latency to the recipient count.
+  - **`Promise.resolve().then(...)` instead of setImmediate**: subtler — that
+    runs in the SAME tick as the response (microtask), so `res.json` flush
+    races the worker's first DB query. `setImmediate` defers to the next
+    macro-task tick, after I/O has drained, which is the safer default.
+
 - **Consequences:**
-  - Simpler infra (postgres only).
-  - Loses jobs if process crashes mid-send — acceptable for assignment but
-    must be called out in README.
-  - Easy to swap to BullMQ later — encapsulate in a `sender.service.ts` interface.
+  - **Simpler infra** — postgres only, no Redis.
+  - **Worker is best-effort, not durable** — if the api process crashes
+    mid-send, in-flight rows stay `pending` and the campaign stays in
+    `sending`. Re-running the worker is safe by design (the worker filters
+    `WHERE status='pending'`, so a retry only touches still-pending rows).
+    Operator can re-trigger by calling the worker directly, or via a future
+    cron sweep. Documented as a known limitation in README.
+  - **Test sequencing is deterministic** via the awaitable test variant +
+    `SEND_SUCCESS_RATE` env override.
+  - **Easy to swap to BullMQ later** — keep the `runSendWorker(campaignId)`
+    function signature; replace the controller's `setImmediate` with a
+    `queue.add('send', { campaignId })` call.
 
 ## ADR-003: JWT storage on the client
 

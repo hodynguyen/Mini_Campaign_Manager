@@ -513,3 +513,176 @@ re-apply it. `req.user.id` is the source of `userId` for service calls.
   enforce it). The composite (campaign_id, recipient_id) remains UNIQUE at
   the table level. Reason: simplifies row-level operations from JS land
   (e.g. F4 open-tracking endpoint can `findByPk`).
+
+---
+
+## F4 Schedule/Send — Locked Decisions
+
+> Author: architect (THINK phase, F4). Date: 2026-05-08.
+> Scope: tooling + scaffold contracts that BUILD must follow without redeciding.
+> Spec: `.hody/knowledge/spec-schedule-send.md`.
+
+### File map (apps/api delta — created/modified by THINK as skeletons; BUILD fills bodies)
+
+```
+apps/api/
+├── src/
+│   ├── campaigns/
+│   │   ├── schema.ts           [THINK-EDIT] + scheduleSchema, openTrackParamsSchema.
+│   │   ├── service.ts          [THINK-EDIT] + ATOMIC_*_SQL constants,
+│   │   │                                       scheduleCampaign(), sendCampaign(),
+│   │   │                                       trackOpen() — TODO bodies.
+│   │   ├── worker.ts           [THINK-NEW]  runSendWorker + runSendWorkerForTests
+│   │   │                                     — TODO bodies; awaitable test variant.
+│   │   ├── controller.ts       [THINK-EDIT] + scheduleCampaign / sendCampaign /
+│   │   │                                       trackOpen handler skeletons (TODO).
+│   │   └── routes.ts           [THINK-EDIT] + 3 new POST routes (order locked below).
+│   ├── config/env.ts           [THINK-EDIT] + SEND_SUCCESS_RATE, SEND_WORKER_DELAY_MS.
+│   └── (no changes to app.ts — /campaigns is already mounted; new routes attach to the same router)
+└── .env.example                [THINK-EDIT] + SEND_SUCCESS_RATE, SEND_WORKER_DELAY_MS docs.
+
+packages/shared/src/index.ts    [THINK-EDIT] + ScheduleCampaignRequest, SendCampaignResponse.
+```
+
+### Atomic UPDATE SQL constants (kept in `service.ts`)
+
+These are the LOAD-BEARING decision of F4. The `WHERE ... AND status IN (...)`
+clause is the state-machine guard at the SQL level — there is NO read-modify-
+write window where a concurrent transition could slip in. Closes the F3
+carry-forward MEDIUM ("find-then-update race", documented in tech-debt.md).
+
+```sql
+-- ATOMIC_SCHEDULE_SQL
+UPDATE campaigns
+   SET status='scheduled', scheduled_at=:scheduledAt, updated_at=NOW()
+ WHERE id=:id AND created_by=:userId AND status='draft';
+
+-- ATOMIC_SEND_SQL
+UPDATE campaigns
+   SET status='sending', updated_at=NOW()
+ WHERE id=:id AND created_by=:userId AND status IN ('draft','scheduled');
+
+-- ATOMIC_OPEN_TRACK_SQL
+UPDATE campaign_recipients cr
+   SET opened_at=NOW()
+  FROM campaigns c
+ WHERE cr.campaign_id=c.id
+   AND c.id=:campaignId AND c.created_by=:userId
+   AND cr.recipient_id=:recipientId
+   AND cr.status='sent' AND cr.opened_at IS NULL;
+```
+
+Bind-pattern: every variable comes through Sequelize `replacements:` named
+binds — never string-interpolated. SQL-injection-safe.
+
+After UPDATE the service inspects `affectedRows`:
+- `=== 1` → success (re-fetch + return DTO for schedule; return synthetic `{ id, status: 'sending' }` for send; no-op for open-track).
+- `=== 0` → run a follow-up `Campaign.findOne({ where: { id, createdBy: userId } })` to distinguish:
+  - missing → 404 `CAMPAIGN_NOT_FOUND` (covers genuine miss + foreign tenancy; same body, no existence leak).
+  - present → 409 `CAMPAIGN_NOT_SCHEDULABLE` / `CAMPAIGN_NOT_SENDABLE`.
+
+### Worker design — bucket + bulk-update + atomic flip
+
+Two exports, one body (see `worker.ts`):
+- `runSendWorker(campaignId)` — production. NEVER throws. Wraps the body in
+  try/catch + `console.error('[send-worker]', ...)`. Called via
+  `setImmediate(() => runSendWorker(id).catch(...))` from the controller
+  AFTER `res.status(202).json(...)`.
+- `runSendWorkerForTests(campaignId)` — test mode. Same body, throws on
+  error so tests can assert the failure path. Tests `await` it directly.
+
+Worker steps:
+1. `CampaignRecipient.findAll({ where: { campaignId, status: 'pending' } })`.
+   The `status='pending'` filter makes a partial retry safe — re-running
+   the worker only touches still-pending rows.
+2. Bucket each row into `sentIds` / `failedIds` via
+   `Math.random() < env.SEND_SUCCESS_RATE`.
+3. At most TWO bulk UPDATEs (skip the bucket if empty):
+   - `UPDATE campaign_recipients SET status='sent',   sent_at=NOW() WHERE id IN (:sentIds)`
+   - `UPDATE campaign_recipients SET status='failed', sent_at=NOW() WHERE id IN (:failedIds)`
+   `sent_at` is stamped on BOTH outcomes — represents "attempted at" per
+   business-rules.md.
+4. (Optional) `await sleep(env.SEND_WORKER_DELAY_MS)` so tests can observe
+   the `sending` intermediate state via polling. Default 0 in production.
+5. Atomic flip — only when still `'sending'`:
+   ```sql
+   UPDATE campaigns SET status='sent', updated_at=NOW()
+    WHERE id=:campaignId AND status='sending';
+   ```
+   Idempotent on retry; will not trample a manual fix that already moved
+   the campaign.
+
+### Error code table (F4 surface)
+
+| Endpoint                                                         | HTTP | Code                       | When                                       |
+|------------------------------------------------------------------|------|----------------------------|--------------------------------------------|
+| `POST /campaigns/:id/schedule`                                   | 200  | —                          | Atomic UPDATE affected 1 row.              |
+| `POST /campaigns/:id/schedule`                                   | 400  | `VALIDATION_ERROR`         | zod fail (non-ISO / extra keys).           |
+| `POST /campaigns/:id/schedule`                                   | 400  | `SCHEDULED_AT_IN_PAST`     | server-clock guard (zod ok, time past).    |
+| `POST /campaigns/:id/schedule`                                   | 404  | `CAMPAIGN_NOT_FOUND`       | id miss / foreign user (no existence leak).|
+| `POST /campaigns/:id/schedule`                                   | 409  | `CAMPAIGN_NOT_SCHEDULABLE` | exists but status != 'draft'.              |
+| `POST /campaigns/:id/send`                                       | 202  | —                          | Atomic UPDATE affected 1 row + worker kicked.|
+| `POST /campaigns/:id/send`                                       | 404  | `CAMPAIGN_NOT_FOUND`       | id miss / foreign user.                    |
+| `POST /campaigns/:id/send`                                       | 409  | `CAMPAIGN_NOT_SENDABLE`    | exists but status not in {draft,scheduled}.|
+| `POST /campaigns/:id/recipients/:recipientId/open`               | 204  | —                          | Always on success path (idempotent no-op). |
+| `POST /campaigns/:id/recipients/:recipientId/open`               | 400  | `VALIDATION_ERROR`         | non-UUID path params (zod).                |
+
+### Response status codes
+
+| Endpoint                          | Status | Reason                                                                  |
+|-----------------------------------|--------|-------------------------------------------------------------------------|
+| `POST /campaigns/:id/schedule`    | 200    | Synchronous transition; full updated `Campaign` DTO in body.            |
+| `POST /campaigns/:id/send`        | 202    | Async; body is `{ id, status: 'sending' }`. Client polls `GET /:id`.    |
+| `POST /campaigns/:id/recipients/:recipientId/open` | 204 | No content; idempotent silent no-op on already-opened/foreign cases. |
+
+### Env additions (`apps/api/src/config/env.ts` + `.env.example`)
+
+| Var                      | Type                       | Default | Why                                                          |
+|--------------------------|----------------------------|---------|--------------------------------------------------------------|
+| `SEND_SUCCESS_RATE`      | `number` in [0, 1]         | `0.8`   | Per-recipient sent probability. Tests override to 1.0/0.0.   |
+| `SEND_WORKER_DELAY_MS`   | non-negative integer ms    | `0`     | Optional artificial delay so tests can observe `sending`.    |
+
+### Mount order (`apps/api/src/campaigns/routes.ts`)
+
+```
+GET    /
+POST   /
+GET    /:id
+PATCH  /:id
+DELETE /:id
+POST   /:id/schedule
+POST   /:id/send
+POST   /:id/recipients/:recipientId/open
+```
+
+Express matches by exact path on each route, so the F4 sub-resource routes
+are NOT shadowed by `:id` (which is a different path). Order is preserved
+mainly for human readability + matching the spec's file map.
+
+### Test-flow for the worker
+
+Tests should NOT poll `GET /campaigns/:id` with timeouts unless the test is
+specifically about the polling UX. The cleaner pattern:
+
+```ts
+import { runSendWorkerForTests } from '../src/campaigns/worker';
+// ...
+await request(app).post(`/campaigns/${id}/send`).set(authHeader).expect(202);
+// Now manually drain the worker — deterministic, no setTimeout.
+await runSendWorkerForTests(id);
+// Assert eventual state directly:
+const detail = await request(app).get(`/campaigns/${id}`).set(authHeader);
+expect(detail.body.status).toBe('sent');
+```
+
+For tests that DO want to observe the `sending` intermediate state, set
+`SEND_WORKER_DELAY_MS=200` in the test's env, send through the route, poll
+within the delay window, then `await runSendWorkerForTests(id)` to drain.
+
+### Deviations from spec-schedule-send.md
+
+- None. All file paths, schema shapes, error codes, and the atomic SQL
+  pattern match the spec. The `runSendWorkerForTests` awaitable variant is
+  the spec's own "tests are awaited by exposing a Promise<void>" idea, just
+  named explicitly so production code can never accidentally serialize a
+  request behind it.

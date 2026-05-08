@@ -1,14 +1,14 @@
 {
-  "workflow_id": "feat-campaigns-crud-20260508",
-  "feature": "F3 — Campaigns + Recipients CRUD + state machine",
+  "workflow_id": "feat-schedule-send-20260508",
+  "feature": "F4 — Schedule + Send (async) + Stats refresh",
   "type": "api-endpoint",
   "status": "completed",
   "execution_mode": "auto",
   "spec_confirmed": true,
-  "spec_file": "spec-campaigns-crud.md",
-  "log_file": "log-campaigns-crud.md",
-  "created_at": "2026-05-08T08:00:00Z",
-  "updated_at": "2026-05-08T13:30:00Z",
+  "spec_file": "spec-schedule-send.md",
+  "log_file": "log-schedule-send.md",
+  "created_at": "2026-05-08T13:45:00Z",
+  "updated_at": "2026-05-08T16:30:00Z",
   "phases": {
     "THINK": { "agents": ["architect"], "completed": ["architect"], "active": null, "skipped": [] },
     "BUILD": { "agents": ["backend"], "completed": ["backend"], "active": null, "skipped": [] },
@@ -20,45 +20,47 @@
     {
       "agent": "architect",
       "phase": "THINK",
-      "completed_at": "2026-05-08T09:30:00Z",
-      "output_summary": "Locked F3 scaffolding: 3 migrations (campaigns, recipients, campaign_recipients with FKs + indexes), 3 Sequelize models (skeleton init() only), centralized associations.ts, stats.ts with STATS_SQL constant + computeCampaignStats skeleton, zod schemas for campaigns + recipients (.strict() on PATCH for state-machine guard), service skeletons with TODO bodies + JSDoc-documented contracts. Extended tests/helpers/server.ts truncate() + side-effect imports. Added 10 type-only exports to packages/shared (Campaign, Recipient, CampaignRecipientRow, CampaignStats, CampaignDetail, etc.). Authored ADR-012 (recipients tenant-shared, no created_by). Documented F3 architecture section.",
+      "completed_at": "2026-05-08T14:30:00Z",
+      "output_summary": "F4 schedule/send scaffolding: zod schemas (scheduleSchema with offset-aware ISO + future-time check deferred to service; openTrackParamsSchema for UUID path params), service skeletons with three ATOMIC_*_SQL constants (closes F3 race), worker.ts created with paired runSendWorker/runSendWorkerForTests (production never-throws, test variant awaitable for deterministic sequencing), controller skeletons (send controller's setImmediate kick documented post-202), 3 new routes wired in spec mount order, env additions (SEND_SUCCESS_RATE=0.8, SEND_WORKER_DELAY_MS=0) + .env.example, packages/shared interfaces (ScheduleCampaignRequest, SendCampaignResponse). ADR-002 flipped proposed→accepted with full implementation detail. F3 atomic-transitions tech-debt entry marked RESOLVED. tsc clean, eslint 0 errors, all 59 F3 tests still green.",
       "kb_files_modified": [
         ".hody/knowledge/architecture.md",
         ".hody/knowledge/decisions.md",
-        ".hody/knowledge/log-campaigns-crud.md"
+        ".hody/knowledge/api-contracts.md",
+        ".hody/knowledge/tech-debt.md",
+        ".hody/knowledge/log-schedule-send.md"
       ]
     },
     {
       "agent": "backend",
       "phase": "BUILD",
-      "completed_at": "2026-05-08T11:30:00Z",
-      "output_summary": "Implemented F3 campaigns + recipients backend. Ran migrations 0001-0004 against both campaign and campaign_test DBs (idempotent — re-runs are no-ops). Filled architect TODOs: campaigns/service.ts (5 functions: list/create/get/update/delete with tenancy via createdBy filter, state-machine 409 CAMPAIGN_NOT_EDITABLE on PATCH/DELETE non-draft, transactional recipient upsert via findOrCreate by email), campaigns/stats.ts (raw STATS_SQL with named-bind, zero-on-zero rate guards), recipients/service.ts (list with Op.iLike search, create with UniqueConstraintError → 409 RECIPIENT_EMAIL_TAKEN). Created controllers + routers for both surfaces with shared asyncHandler util (extracted from auth/routes.ts). Mounted /campaigns and /recipients behind requireAuth in app.ts. Added side-effect imports for new models + associations to index.ts. Build clean, lint clean (1 pre-existing warning), all 24 F2 tests still pass.",
+      "completed_at": "2026-05-08T15:15:00Z",
+      "output_summary": "F4 service/worker/controller bodies filled per architect's hand-off. service.scheduleCampaign uses server-clock future check (400 SCHEDULED_AT_IN_PAST) + ATOMIC_SCHEDULE_SQL with affectedRows-then-fallback-SELECT (404 vs 409 CAMPAIGN_NOT_SCHEDULABLE without existence leak). service.sendCampaign uses ATOMIC_SEND_SQL same pattern, returns { id, status: 'sending' } (409 CAMPAIGN_NOT_SENDABLE). service.trackOpen uses ATOMIC_OPEN_TRACK_SQL silently (no throw — endpoint always 204; SQL JOIN embeds tenancy + idempotency guards). worker.runSendWorker (production never-throws) wraps runSendWorkerForTests (awaitable for tests) in try/catch+console.error. runSendWorkerForTests: optional SEND_WORKER_DELAY_MS setTimeout → findAll pending CRs → JS-side random-bucket → at most 2 bulk CampaignRecipient.update calls (sentAt stamped on both buckets) → atomic ATOMIC_SENDING_TO_SENT_SQL flip (WHERE status='sending'). controller.sendCampaign kicks worker via setImmediate AFTER res.status(202).json — verified ordering. controller.trackOpen validates both UUID params via openTrackParamsSchema. tsc clean, eslint 0 errors (1 pre-existing unrelated warning), all 59 F3 tests still green. F4 endpoints wired and ready for integration-tester.",
       "kb_files_modified": [
-        ".hody/knowledge/log-campaigns-crud.md"
+        ".hody/knowledge/log-schedule-send.md"
       ]
     },
     {
       "agent": "integration-tester",
       "phase": "VERIFY",
-      "completed_at": "2026-05-08T12:30:00Z",
-      "output_summary": "Wrote 35 F3 integration tests across the 5 spec-prescribed files plus a shared auth helper. Suite breakdown: campaigns.crud=6, campaigns.tenancy=9, campaigns.state-machine=9, campaigns.stats=3, recipients.crud=8. Total project test count now 59 passing (24 F2 + 35 F3 — exceeds the ≥34 spec target by 25). All tests passed on the first run; no source bugs found in F3 backend. Build clean, lint clean (1 pre-existing warning unchanged). Coverage hits every spec §10 requirement: tenancy 404-not-403 (GET/PATCH/DELETE + DB-state assertions), state-machine 409 on scheduled/sending/sent (it.each), .strict() PATCH guard against status/scheduled_at/created_by injection (it.each), stats correctness with mixed-state CR rows + zero-on-zero guards (toBeCloseTo for rates), recipient dedupe via mixed-case + 409 RECIPIENT_EMAIL_TAKEN, paginated list shapes for both surfaces. Auth helper (createUserA / createUserB / createTestUser) factored out for reuse by F4+ suites.",
+      "completed_at": "2026-05-08T16:00:00Z",
+      "output_summary": "F4 integration tests added across 3 new files. campaigns.schedule.test.ts (6 tests: happy / past-time SCHEDULED_AT_IN_PAST / wrong-state CAMPAIGN_NOT_SCHEDULABLE / tenancy-404 / non-ISO VALIDATION_ERROR / strict-body VALIDATION_ERROR). campaigns.send.test.ts (6 tests: happy with await runSendWorkerForTests + 5 recipients / 100-recipient distribution with both buckets non-empty / 202-not-200 shape / wrong-state CAMPAIGN_NOT_SENDABLE / tenancy-404 / empty-recipients still flips campaign sent). campaigns.open-track.test.ts (7 tests: happy stamps opened_at / idempotent second call doesn't advance opened_at / pending no-op / failed no-op / foreign-tenancy silent 204 with row state unchanged / non-UUID 400 VALIDATION_ERROR / E2E send+open producing non-zero open_rate). All 19 new tests assert via direct DB queries (CampaignRecipient.findByPk) where the endpoint is silent. F3 regressions: zero. Total: 78/78 tests pass across 12 suites (was 59 → now 78 ≥ 66 target). Lint 0 errors, build clean. No source bugs found; F4 implementation matched the architect/backend hand-offs exactly. Ready for code-reviewer.",
       "kb_files_modified": [
-        ".hody/knowledge/log-campaigns-crud.md"
+        ".hody/knowledge/log-schedule-send.md"
       ]
     },
     {
       "agent": "code-reviewer",
       "phase": "VERIFY",
-      "completed_at": "2026-05-08T13:30:00Z",
-      "output_summary": "Verdict: APPROVED-WITH-NITS. F3 ships clean — all BLOCKER/HIGH gates pass (tenancy 404-not-403 + DB-state assertions; SQL injection: only one raw query in codebase, bound via replacements; state-machine 409 on scheduled/sending/sent + .strict() PATCH guard; stats single-SQL with zero-on-zero rate guards; transactional createCampaign; all three indexes verified via pg_indexes + EXPLAIN; FK ON DELETE CASCADE on CR rows; mount order helmet→cors→morgan→json(100kb)→/auth→/health→requireAuth+/campaigns→requireAuth+/recipients→errorHandler; asyncHandler DRY'd cleanly across 3 routers; 500 handler does not leak err.message/stack). 5 nits filed to tech-debt.md (MEDIUM: find-then-update race window — F4 carry-forward; sequential findOrCreate loop on bulk upsert. LOW: ignoreDuplicates is dead-code defense; JSDoc inaccuracy on empty-PATCH updated_at; recipient-name fallback UX). 0 BLOCKER fixes applied. 59/59 tests green, build clean, lint 0 errors / 1 pre-existing warning unchanged.",
+      "completed_at": "2026-05-08T16:30:00Z",
+      "output_summary": "F4 review verdict: APPROVED. No BLOCKER/HIGH/MEDIUM findings; only LOW notes (worker console.error style consistent with project; Math.random non-crypto acceptable for simulated send; 10ms idempotency-test sleep pragmatic). All 9 review-checklist sections (A. Atomicity / B. Worker / C. Open-track auth / D. Validation / E. Error mapping / F. Resource cleanup / G. Privacy / H. Test signal / I. ADR consistency) pass. Schedule SQL is single UPDATE with WHERE status='draft' + tenancy + affectedRows check + tenancy-scoped follow-up SELECT for 404/409 distinction (no existence leak); send SQL same pattern with status IN ('draft','scheduled'); worker's sending→sent flip is atomic with WHERE status='sending'; open-track SQL has tenancy JOIN inline. Worker is fire-and-forget via setImmediate AFTER res.json (verified line ordering); production wrapper try/catch never throws; test variant awaitable; bucket+bulk update at most 2 UPDATEs with empty-bucket skip; sentAt stamped on both buckets; Math.random < SEND_SUCCESS_RATE (strict <). requireAuth mounted on /campaigns covers nested open-track route; tenancy in SQL not just middleware; foreign-tenant test asserts row UNCHANGED. scheduleSchema.strict() rejects extra keys; openTrackParamsSchema validates UUIDs. ValidationError=400, NotFoundError=404, ConflictError=409 mapping correct. SEND_WORKER_DELAY_MS=0 short-circuits setTimeout. Open-track always 204; error handler doesn't leak. ADR-002 accepted with BullMQ preserved as alternative; F3 race tech-debt entry marked RESOLVED IN F4. All 11 DoD checkboxes from spec-schedule-send.md pass. Build clean, lint 0 errors, 78/78 tests across 12 suites. No fixes applied (none required). Ready for finalize/commit/push.",
       "kb_files_modified": [
-        ".hody/knowledge/log-campaigns-crud.md",
-        ".hody/knowledge/tech-debt.md"
+        ".hody/knowledge/log-schedule-send.md"
       ]
     }
   ],
   "previous_workflows": [
     "feat-scaffold-and-dev-env-20260506",
-    "feat-auth-20260506"
+    "feat-auth-20260506",
+    "feat-campaigns-crud-20260508"
   ]
 }

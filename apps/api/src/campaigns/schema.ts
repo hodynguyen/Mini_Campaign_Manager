@@ -83,6 +83,50 @@ export const updateCampaignSchema = z
 const campaignStatusSchema = z.enum(['draft', 'scheduled', 'sending', 'sent']);
 
 /**
+ * POST /campaigns/:id/schedule body.
+ *
+ * `scheduled_at` must be an ISO 8601 datetime WITH timezone offset (the
+ * `{ offset: true }` flag accepts either `Z` or `±HH:MM` suffix). zod only
+ * validates the LITERAL FORMAT here — it does NOT know the server clock and
+ * cannot enforce "future".
+ *
+ * **The future-time check happens in service.scheduleCampaign** against the
+ * server clock per business-rules.md "scheduled_at must be in the future"
+ * (client clocks lie/drift; the brief is explicit that business rules are
+ * enforced server-side).
+ *
+ * Failure modes from this surface:
+ *   - non-ISO / missing / wrong type → 400 VALIDATION_ERROR (zod path).
+ *   - ISO but in the past            → 400 SCHEDULED_AT_IN_PAST (service path).
+ *
+ * `.strict()` — rejects any extra keys (e.g. a malicious `status: 'sent'`)
+ * with VALIDATION_ERROR, mirroring the same security guard pattern used on
+ * `updateCampaignSchema`.
+ */
+export const scheduleSchema = z
+  .object({
+    scheduled_at: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+/**
+ * Path-param schema for the open-tracking endpoint:
+ *   POST /campaigns/:id/recipients/:recipientId/open
+ *
+ * Both ids must be UUIDs. We validate the SHAPE here so a non-UUID never
+ * reaches Sequelize (which would otherwise either return null → mapped to a
+ * generic 404 or throw a Postgres-level invalid_text_representation error
+ * leaking driver internals through the 500 path).
+ *
+ * Failure mode: 400 VALIDATION_ERROR on non-UUID input (zod path).
+ *               Genuine missing/foreign rows still surface as 404 via service.
+ */
+export const openTrackParamsSchema = z.object({
+  id: z.string().uuid(),
+  recipientId: z.string().uuid(),
+});
+
+/**
  * GET /campaigns query string.
  *
  * Defaults: page=1, limit=20. Limit capped at 100 (DOS guard).
@@ -102,3 +146,5 @@ export const listQuerySchema = z.object({
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
 export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>;
 export type ListCampaignsQuery = z.infer<typeof listQuerySchema>;
+export type ScheduleCampaignInput = z.infer<typeof scheduleSchema>;
+export type OpenTrackParams = z.infer<typeof openTrackParamsSchema>;

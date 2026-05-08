@@ -80,19 +80,41 @@ status: planned
 - **Business rule:** only allowed when status=draft.
 
 ### POST /campaigns/:id/schedule
-- **Request:** `{ scheduled_at: string (ISO 8601, future) }`
+- **Request:** `{ scheduled_at: string (ISO 8601, future, with TZ offset) }`
 - **Response 200:** updated `Campaign` (status=scheduled)
-- **Errors:** 400 (scheduled_at not in future), 409 (status != draft)
-- **Auth:** required
+- **Errors:**
+  - 400 `VALIDATION_ERROR` — non-ISO / missing / extra keys (zod `.strict()`).
+  - 400 `SCHEDULED_AT_IN_PAST` — ISO format but `<= now()` (server clock).
+  - 404 `CAMPAIGN_NOT_FOUND` — id miss or foreign user.
+  - 409 `CAMPAIGN_NOT_SCHEDULABLE` — campaign exists but status != 'draft'.
+- **Auth:** required (per-tenant via `created_by`).
 
 ### POST /campaigns/:id/send
 - **Request:** (none)
-- **Response 202:** `{ id, status: "sending" }`
-- **Errors:** 409 (status not in {draft, scheduled})
-- **Auth:** required
-- **Notes:** Async simulation. Worker randomly marks each CampaignRecipient
-  `sent` or `failed` (~80/20 split), stamps `sent_at`, then flips
-  Campaign.status to `sent`. Client polls `GET /campaigns/:id` for progress.
+- **Response 202:** `{ id, status: "sending" }` — matches `SendCampaignResponse` from `@app/shared`.
+- **Errors:**
+  - 404 `CAMPAIGN_NOT_FOUND` — id miss or foreign user.
+  - 409 `CAMPAIGN_NOT_SENDABLE` — status not in {draft, scheduled}.
+- **Auth:** required.
+- **Notes:** Async simulation per ADR-002 (accepted, F4). Worker fires via
+  `setImmediate` AFTER the 202 is committed; randomly marks each
+  CampaignRecipient `sent` or `failed` per `SEND_SUCCESS_RATE` (default
+  0.8), stamps `sent_at` on both outcomes, then flips Campaign.status to
+  `sent` ATOMICALLY (only when still `sending`). Client polls `GET
+  /campaigns/:id` for progress + stats refresh.
+
+### POST /campaigns/:id/recipients/:recipientId/open
+- **Request:** (none)
+- **Response 204:** No Content.
+- **Errors:**
+  - 400 `VALIDATION_ERROR` — non-UUID path params (zod).
+- **Auth:** required (NOT a public webhook — JWT scoped to the campaign owner).
+- **Notes:** Idempotent. Atomic SQL stamps `opened_at = NOW()` only when the
+  CR row's status='sent' AND `opened_at IS NULL` AND the campaign belongs
+  to the authenticated user. Any other case (already opened, pending/failed
+  row, foreign tenancy, unknown ids) is a silent no-op — endpoint always
+  returns 204 to avoid leaking row existence. F6 seed script + the
+  frontend demo use this to make `open_rate > 0` in the stats view.
 
 ## Recipients
 
@@ -109,8 +131,9 @@ status: planned
 - **Note:** Brief writes `POST /recipient` (singular). I'll standardize on
   `POST /recipients` per REST convention and call this out in the README.
 
-## Open tracking (demo-only)
+## Open tracking (demo + seed)
 
-The brief includes `opened_at` in the schema but specifies no HTTP endpoint to
-trigger it. To make `open_rate` non-zero in the UI demo, the seed script will
-stamp `opened_at` on a random subset of `sent` rows. **Not** part of the public API.
+> Originally documented as a seed-only path. F4 promotes it to a real
+> auth-required endpoint — see `POST /campaigns/:id/recipients/:recipientId/open`
+> above. The F6 seed script + frontend demo both call that endpoint to make
+> `open_rate` non-zero.

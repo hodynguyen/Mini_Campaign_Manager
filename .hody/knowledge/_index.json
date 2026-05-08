@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "built_at": "2026-05-08T07:03:48Z",
+  "built_at": "2026-05-08T07:32:13Z",
   "entries": [
     {
       "file": "api-contracts.md",
-      "total_lines": 116,
+      "total_lines": 139,
       "has_frontmatter": true,
       "tags": [
         "api",
@@ -75,33 +75,38 @@
         {
           "heading": "POST /campaigns/:id/send",
           "level": 3,
-          "line": 81
+          "line": 85
+        },
+        {
+          "heading": "POST /campaigns/:id/recipients/:recipientId/open",
+          "level": 3,
+          "line": 99
         },
         {
           "heading": "Recipients",
           "level": 2,
-          "line": 90
+          "line": 112
         },
         {
           "heading": "GET /recipients",
           "level": 3,
-          "line": 92
+          "line": 114
         },
         {
           "heading": "POST /recipients",
           "level": 3,
-          "line": 97
+          "line": 119
         },
         {
-          "heading": "Open tracking (demo-only)",
+          "heading": "Open tracking (demo + seed)",
           "level": 2,
-          "line": 105
+          "line": 127
         }
       ]
     },
     {
       "file": "architecture.md",
-      "total_lines": 515,
+      "total_lines": 688,
       "has_frontmatter": true,
       "tags": [
         "architecture",
@@ -262,6 +267,56 @@
           "heading": "Deviations from spec-campaigns-crud.md",
           "level": 3,
           "line": 502
+        },
+        {
+          "heading": "F4 Schedule/Send \u2014 Locked Decisions",
+          "level": 2,
+          "line": 512
+        },
+        {
+          "heading": "File map (apps/api delta \u2014 created/modified by THINK as skeletons; BUILD fills bodies)",
+          "level": 3,
+          "line": 518
+        },
+        {
+          "heading": "Atomic UPDATE SQL constants (kept in `service.ts`)",
+          "level": 3,
+          "line": 540
+        },
+        {
+          "heading": "Worker design \u2014 bucket + bulk-update + atomic flip",
+          "level": 3,
+          "line": 577
+        },
+        {
+          "heading": "Error code table (F4 surface)",
+          "level": 3,
+          "line": 608
+        },
+        {
+          "heading": "Response status codes",
+          "level": 3,
+          "line": 623
+        },
+        {
+          "heading": "Env additions (`apps/api/src/config/env.ts` + `.env.example`)",
+          "level": 3,
+          "line": 631
+        },
+        {
+          "heading": "Mount order (`apps/api/src/campaigns/routes.ts`)",
+          "level": 3,
+          "line": 638
+        },
+        {
+          "heading": "Test-flow for the worker",
+          "level": 3,
+          "line": 655
+        },
+        {
+          "heading": "Deviations from spec-schedule-send.md",
+          "level": 3,
+          "line": 675
         }
       ]
     },
@@ -362,7 +417,7 @@
     },
     {
       "file": "decisions.md",
-      "total_lines": 336,
+      "total_lines": 394,
       "has_frontmatter": true,
       "tags": [
         "decisions",
@@ -391,52 +446,52 @@
         {
           "heading": "ADR-003: JWT storage on the client",
           "level": 2,
-          "line": 45
+          "line": 103
         },
         {
           "heading": "ADR-004: Yarn 1 + selective `nohoist` for testing-library",
           "level": 2,
-          "line": 55
+          "line": 113
         },
         {
           "heading": "ADR-005: TypeScript module strategy split \u2014 ESM web / CJS api",
           "level": 2,
-          "line": 79
+          "line": 137
         },
         {
           "heading": "ADR-006: ESLint 8 (legacy config), not 9 (flat config)",
           "level": 2,
-          "line": 103
+          "line": 161
         },
         {
           "heading": "ADR-007: F1 scope guards \u2014 what is intentionally NOT here",
           "level": 2,
-          "line": 117
+          "line": 175
         },
         {
           "heading": "ADR-008: Migrations via `umzug` directly, not `sequelize-cli`",
           "level": 2,
-          "line": 129
+          "line": 187
         },
         {
           "heading": "ADR-009: Shared types in `@app/shared`, zod schemas in `apps/api`",
           "level": 2,
-          "line": 164
+          "line": 222
         },
         {
           "heading": "ADR-010: bcrypt cost factor = 10",
           "level": 2,
-          "line": 195
+          "line": 253
         },
         {
           "heading": "ADR-011: JWT shape, signing, and expiry",
           "level": 2,
-          "line": 228
+          "line": 286
         },
         {
           "heading": "ADR-012: Recipients are tenant-shared (no `created_by` column)",
           "level": 2,
-          "line": 269
+          "line": 327
         }
       ]
     },
@@ -513,7 +568,7 @@
       ],
       "author_agent": null,
       "created": null,
-      "status": "in_progress",
+      "status": "completed",
       "supersedes": null,
       "sections": [
         {
@@ -616,6 +671,59 @@
           "heading": "Summary (finalize)",
           "level": 2,
           "line": 270
+        }
+      ]
+    },
+    {
+      "file": "log-schedule-send.md",
+      "total_lines": 199,
+      "has_frontmatter": true,
+      "tags": [
+        "log",
+        "api-endpoint",
+        "schedule",
+        "send",
+        "async"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "in_progress",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Feature Log: F4 \u2014 Schedule + Send (async) + Stats refresh",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Spec",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Agent Work",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "architect \u2014 F4 schedule/send scaffolding",
+          "level": 3,
+          "line": 12
+        },
+        {
+          "heading": "backend \u2014 F4 schedule/send/open-track implementation",
+          "level": 3,
+          "line": 71
+        },
+        {
+          "heading": "integration-tester \u2014 F4 tests",
+          "level": 3,
+          "line": 102
+        },
+        {
+          "heading": "code-reviewer \u2014 F4 review",
+          "level": 3,
+          "line": 131
         }
       ]
     },
@@ -934,8 +1042,82 @@
       ]
     },
     {
+      "file": "spec-schedule-send.md",
+      "total_lines": 142,
+      "has_frontmatter": true,
+      "tags": [
+        "spec",
+        "api-endpoint",
+        "schedule",
+        "send",
+        "async",
+        "state-machine"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "implemented",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Spec: F4 \u2014 Schedule + Send (async) + Stats refresh",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Requirements",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Technical Design",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "File map (apps/api delta)",
+          "level": 3,
+          "line": 38
+        },
+        {
+          "heading": "`packages/shared` delta",
+          "level": 3,
+          "line": 56
+        },
+        {
+          "heading": "Worker design",
+          "level": 3,
+          "line": 70
+        },
+        {
+          "heading": "Locked tech decisions",
+          "level": 3,
+          "line": 89
+        },
+        {
+          "heading": "Out of Scope",
+          "level": 2,
+          "line": 102
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 2,
+          "line": 111
+        },
+        {
+          "heading": "Definition of Done",
+          "level": 2,
+          "line": 122
+        }
+      ]
+    },
+    {
       "file": "tech-debt.md",
-      "total_lines": 87,
+      "total_lines": 102,
       "has_frontmatter": true,
       "tags": [
         "tech-debt",
@@ -982,29 +1164,29 @@
           "line": 41
         },
         {
-          "heading": "MEDIUM \u2014 `updateCampaign` find-then-update race window",
+          "heading": "~~MEDIUM \u2014 `updateCampaign` find-then-update race window~~ \u2014 RESOLVED IN F4",
           "level": 3,
           "line": 50
         },
         {
           "heading": "MEDIUM \u2014 `recipient_emails` upsert is a sequential await loop",
           "level": 3,
-          "line": 57
+          "line": 72
         },
         {
           "heading": "LOW \u2014 `bulkCreate({ ignoreDuplicates: true })` masks future genuine duplicates",
           "level": 3,
-          "line": 64
+          "line": 79
         },
         {
           "heading": "LOW \u2014 `updateCampaign` JSDoc claims `update({})` bumps `updated_at`",
           "level": 3,
-          "line": 70
+          "line": 85
         },
         {
           "heading": "LOW \u2014 Recipient `name` fallback to email-prefix on auto-upsert",
           "level": 3,
-          "line": 76
+          "line": 91
         }
       ]
     }

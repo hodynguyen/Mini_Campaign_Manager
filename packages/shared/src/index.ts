@@ -157,6 +157,43 @@ export interface UpdateCampaignRequest {
 }
 
 /**
+ * `POST /campaigns/:id/schedule` request body.
+ *
+ * `scheduled_at` is an ISO 8601 datetime string with timezone offset (`Z` or
+ * `±HH:MM`). The wire format is validated by zod (`.datetime({ offset: true })`)
+ * but the future-time check happens server-side against the server clock —
+ * see business-rules.md "scheduled_at must be in the future". Sending a past
+ * timestamp returns 400 with code `SCHEDULED_AT_IN_PAST`.
+ *
+ * Allowed source state: `draft` only. Any other state returns 409
+ * `CAMPAIGN_NOT_SCHEDULABLE`.
+ */
+export interface ScheduleCampaignRequest {
+  scheduled_at: string;
+}
+
+/**
+ * `POST /campaigns/:id/send` response (HTTP 202 Accepted).
+ *
+ * The send is asynchronous — the API returns 202 IMMEDIATELY with `status:
+ * 'sending'` and a background worker processes recipients and eventually
+ * flips the campaign to `'sent'`. Clients poll `GET /campaigns/:id` to
+ * observe progress (status + stats refresh).
+ *
+ * Allowed source states: `draft`, `scheduled`. Any other state returns 409
+ * `CAMPAIGN_NOT_SENDABLE`. Sending is one-way per business-rules.md — once
+ * the worker reaches `'sent'`, no endpoint may transition the campaign back.
+ *
+ * The `status` field is the literal `'sending'` (NOT a generic
+ * CampaignStatus) because the response is only ever emitted on the success
+ * path of the atomic schedule/send transition.
+ */
+export interface SendCampaignResponse {
+  id: string;
+  status: 'sending';
+}
+
+/**
  * Generic paginated list envelope. Used by `GET /campaigns` and
  * `GET /recipients`. Offset-based (page/limit) — matches the brief's
  * "pagination or infinite scroll" requirement; cursor pagination is overkill

@@ -3,7 +3,7 @@
 A simplified MarTech tool for marketers to create, manage, and track email campaigns.
 Take-home assignment — see [`ASSIGNMENT.md`](./ASSIGNMENT.md) for the brief.
 
-> **Status:** F1 scaffold + F2 auth + F3 campaigns/recipients CRUD complete. Schedule/Send + Frontend pages land in F4 → F5.
+> **Status:** F1 scaffold + F2 auth + F3 campaigns/recipients CRUD + F4 schedule/send/open-track complete. Backend is feature-complete. Frontend pages land in F5.
 
 ---
 
@@ -156,8 +156,8 @@ work logs) that drove the AI-assisted build — see the section below.
 | F1   | Monorepo scaffold + dev env                           | ✅ done |
 | F2   | Auth (User model, register/login, JWT middleware)     | ✅ done |
 | F3   | Campaigns + Recipients CRUD + state machine           | ✅ done |
-| F4   | Schedule + Send (async simulation) + Stats endpoint   | next   |
-| F5   | Frontend pages + UX polish (loading/error states)     | —      |
+| F4   | Schedule + Send (async simulation) + open-track       | ✅ done |
+| F5   | Frontend pages + UX polish (loading/error states)     | next   |
 | F6   | Seed script + final README pass + tests round-up      | —      |
 
 Acceptance criteria for each pass live in `.hody/knowledge/spec-*.md`.

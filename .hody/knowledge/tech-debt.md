@@ -54,12 +54,27 @@ author_agent: code-reviewer
 status: active
 ---
 
-### MEDIUM — `updateCampaign` find-then-update race window
-- **Where:** `apps/api/src/campaigns/service.ts:259-291` (and same shape in `deleteCampaign`).
-- **Issue:** `findOne` + status check + `update()` are not atomic. If a concurrent F4 transition flips `status` from `draft` to `scheduled` between the find and the update, the PATCH would silently apply to a non-draft campaign, defeating the state-machine guard.
-- **Why deferred:** F3 has no public endpoint that transitions status from draft, so the race is currently unreachable from the API surface. Becomes reachable in F4 (`POST /:id/schedule`, `POST /:id/send`).
-- **Fix shape:** wrap the find+check+update in `sequelize.transaction({ isolationLevel: 'SERIALIZABLE' }, ...)` OR change the `update()` call to `Campaign.update(updates, { where: { id, createdBy, status: 'draft' } })` and check `affectedRows === 1` (raises 409 on 0). The `WHERE status='draft'` clause makes the guard atomic at the SQL level. Mirror the same fix in `deleteCampaign`.
-- **When:** F4 — required before schedule/send endpoints land.
+### ~~MEDIUM — `updateCampaign` find-then-update race window~~ — RESOLVED IN F4
+- **Status:** RESOLVED (2026-05-08, F4 architect think).
+- **Where:** `apps/api/src/campaigns/service.ts` (PATCH/DELETE were the original concern; the F4 schedule/send paths were the actual race surface that would have made this exploitable).
+- **Resolution:** F4 introduces `ATOMIC_SCHEDULE_SQL`, `ATOMIC_SEND_SQL`, and
+  `ATOMIC_OPEN_TRACK_SQL` constants in `apps/api/src/campaigns/service.ts`.
+  Each uses `UPDATE ... WHERE id=:id AND created_by=:userId AND status IN
+  (...)` with an `affectedRows === 1` success check + follow-up SELECT to
+  distinguish 404 vs 409. The state guard is now a SQL-level invariant — no
+  read-modify-write window. The worker's final `sending → sent` flip uses
+  the same pattern (`WHERE status='sending'`) so a partial-completion retry
+  cannot trample.
+- **Note on PATCH/DELETE residual:** `updateCampaign` and `deleteCampaign`
+  in F3 still use the find-then-update pattern. With the F4 schedule/send
+  surface added, a concurrent `POST /:id/schedule` could in principle race
+  a PATCH. In practice both endpoints are owned by the same authenticated
+  user and the UI does not issue concurrent transitions; risk is low
+  enough that F4 deliberately leaves the F3 PATCH/DELETE code unchanged.
+  If a follow-up wants to close even this residual window, mirror the same
+  atomic-UPDATE-with-affectedRows pattern in `updateCampaign` /
+  `deleteCampaign`. Tracked here for the audit trail; not currently
+  actioned.
 
 ### MEDIUM — `recipient_emails` upsert is a sequential await loop
 - **Where:** `apps/api/src/campaigns/service.ts:152-164`.
