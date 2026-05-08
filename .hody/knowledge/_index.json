@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "built_at": "2026-05-08T07:32:13Z",
+  "built_at": "2026-05-08T08:05:00Z",
   "entries": [
     {
       "file": "api-contracts.md",
@@ -106,7 +106,7 @@
     },
     {
       "file": "architecture.md",
-      "total_lines": 688,
+      "total_lines": 875,
       "has_frontmatter": true,
       "tags": [
         "architecture",
@@ -317,6 +317,66 @@
           "heading": "Deviations from spec-schedule-send.md",
           "level": 3,
           "line": 675
+        },
+        {
+          "heading": "F5 Frontend \u2014 Locked Decisions",
+          "level": 2,
+          "line": 685
+        },
+        {
+          "heading": "Component / file map (apps/web/src delta)",
+          "level": 3,
+          "line": 691
+        },
+        {
+          "heading": "Component diagram",
+          "level": 3,
+          "line": 721
+        },
+        {
+          "heading": "Error code -> user message map (authority)",
+          "level": 3,
+          "line": 741
+        },
+        {
+          "heading": "Status -> AntD color/label map (authority)",
+          "level": 3,
+          "line": 765
+        },
+        {
+          "heading": "Polling rule (locked)",
+          "level": 3,
+          "line": 780
+        },
+        {
+          "heading": "Hook signatures (locked)",
+          "level": 3,
+          "line": 792
+        },
+        {
+          "heading": "Axios interceptor contract (locked; frontend implements)",
+          "level": 3,
+          "line": 813
+        },
+        {
+          "heading": "Routing shell",
+          "level": 3,
+          "line": 826
+        },
+        {
+          "heading": "F4 carry-forward UX rules baked into the design",
+          "level": 3,
+          "line": 842
+        },
+        {
+          "heading": "Out-of-scope / explicitly deferred",
+          "level": 3,
+          "line": 856
+        },
+        {
+          "heading": "Deviations from spec-frontend-pages.md",
+          "level": 3,
+          "line": 863
         }
       ]
     },
@@ -609,6 +669,58 @@
       ]
     },
     {
+      "file": "log-frontend-pages.md",
+      "total_lines": 213,
+      "has_frontmatter": true,
+      "tags": [
+        "log",
+        "ui-change",
+        "frontend",
+        "react"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "completed",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Feature Log: F5 \u2014 Frontend pages + UX polish",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Spec",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Agent Work",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "architect \u2014 F5 frontend scaffolding",
+          "level": 3,
+          "line": 12
+        },
+        {
+          "heading": "frontend \u2014 F5 implementation",
+          "level": 3,
+          "line": 83
+        },
+        {
+          "heading": "unit-tester \u2014 F5 component tests",
+          "level": 3,
+          "line": 127
+        },
+        {
+          "heading": "code-reviewer \u2014 F5 review",
+          "level": 3,
+          "line": 158
+        }
+      ]
+    },
+    {
       "file": "log-scaffold-and-dev-env.md",
       "total_lines": 303,
       "has_frontmatter": true,
@@ -687,7 +799,7 @@
       ],
       "author_agent": null,
       "created": null,
-      "status": "in_progress",
+      "status": "completed",
       "supersedes": null,
       "sections": [
         {
@@ -964,6 +1076,89 @@
       ]
     },
     {
+      "file": "spec-frontend-pages.md",
+      "total_lines": 144,
+      "has_frontmatter": true,
+      "tags": [
+        "spec",
+        "ui-change",
+        "frontend",
+        "react",
+        "antd"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "implemented",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Spec: F5 \u2014 Frontend pages + UX polish",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Requirements",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Pages",
+          "level": 3,
+          "line": 17
+        },
+        {
+          "heading": "UX requirements (from spec)",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "Tech requirements",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "File map (apps/web delta)",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "`packages/shared` delta",
+          "level": 3,
+          "line": 78
+        },
+        {
+          "heading": "Locked tech decisions (auto-confirmed)",
+          "level": 3,
+          "line": 82
+        },
+        {
+          "heading": "Tests (vitest + RTL)",
+          "level": 3,
+          "line": 95
+        },
+        {
+          "heading": "Out of Scope",
+          "level": 2,
+          "line": 105
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 2,
+          "line": 115
+        },
+        {
+          "heading": "Definition of Done",
+          "level": 2,
+          "line": 126
+        }
+      ]
+    },
+    {
       "file": "spec-scaffold-and-dev-env.md",
       "total_lines": 187,
       "has_frontmatter": true,
@@ -1117,7 +1312,7 @@
     },
     {
       "file": "tech-debt.md",
-      "total_lines": 102,
+      "total_lines": 135,
       "has_frontmatter": true,
       "tags": [
         "tech-debt",
@@ -1187,6 +1382,31 @@
           "heading": "LOW \u2014 Recipient `name` fallback to email-prefix on auto-upsert",
           "level": 3,
           "line": 91
+        },
+        {
+          "heading": "F5 Frontend \u2014 code-reviewer findings (2026-05-08)",
+          "level": 2,
+          "line": 97
+        },
+        {
+          "heading": "MEDIUM \u2014 Static `notification.error` API loses `ConfigProvider` theming",
+          "level": 3,
+          "line": 106
+        },
+        {
+          "heading": "LOW \u2014 `destroyOnClose` is deprecated in AntD v5 (use `destroyOnHidden`)",
+          "level": 3,
+          "line": 112
+        },
+        {
+          "heading": "LOW \u2014 401 redirect-loop guard uses `startsWith('/login')`",
+          "level": 3,
+          "line": 118
+        },
+        {
+          "heading": "LOW \u2014 Per-page `extractApiError` + `alertProps` duplication",
+          "level": 3,
+          "line": 124
         }
       ]
     }

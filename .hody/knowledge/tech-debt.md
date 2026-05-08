@@ -100,3 +100,36 @@ status: active
 - **Issue:** When `POST /campaigns` upserts a brand-new recipient by email alone, the recipient's `name` is set to `email.split('@')[0]`. For `"Foo+Bar@x.com"`, the prefix is `"foo+bar"` — odd display name. No big deal for the assignment but worth a glance.
 - **Fix shape:** capitalize / strip plus-tags, or default to the full email until the user PATCHes. Optional UX polish.
 - **When:** UX pass on the recipients list page in F5.
+
+## F5 Frontend — code-reviewer findings (2026-05-08)
+
+---
+tags: [tech-debt, frontend, antd, low, medium]
+created: 2026-05-08
+author_agent: code-reviewer
+status: active
+---
+
+### MEDIUM — Static `notification.error` API loses `ConfigProvider` theming
+- **Where:** `apps/web/src/components/CampaignActions.tsx` (`showApiError`) and any future use of `notification.error()` / `message.*` static methods.
+- **Issue:** AntD v5 documents that the static `notification` / `message` APIs are NOT wrapped by `<ConfigProvider>` — they read theme tokens at module-init time, so any dynamic theme overrides (dark mode, brand colors) won't apply to these toasts. Today the app uses default theme everywhere, so the visual impact is zero, but this is a known footgun.
+- **Fix shape:** wrap the app in `<App>` from `antd` (a sibling of `ConfigProvider`) and use `App.useApp().notification` from inside components. ~10 LOC change.
+- **When:** any time a theming feature lands (dark mode, brand colors). Not worth the churn for F5.
+
+### LOW — `destroyOnClose` is deprecated in AntD v5 (use `destroyOnHidden`)
+- **Where:** `apps/web/src/components/CampaignActions.tsx` Schedule `<Modal destroyOnClose>`.
+- **Issue:** AntD v5 emits a deprecation warning during the F5 send-flow test ("`destroyOnClose` is deprecated. Please use `destroyOnHidden` instead.") The current prop still works at runtime, but the warning will surface in production console too.
+- **Fix shape:** rename `destroyOnClose` → `destroyOnHidden`. One-line change.
+- **When:** F6 polish. Trivial.
+
+### LOW — 401 redirect-loop guard uses `startsWith('/login')`
+- **Where:** `apps/web/src/lib/api.ts:55`.
+- **Issue:** Loop guard does `!window.location.pathname.startsWith('/login')`. If a future route ever uses `/login-something` as a path prefix, this would silently skip the redirect on a 401 there. The app has no such route today, so the risk is theoretical.
+- **Fix shape:** use `pathname === '/login'` (exact) since `/login` is the only login-family route.
+- **When:** trivial; pick up next time `lib/api.ts` is touched.
+
+### LOW — Per-page `extractApiError` + `alertProps` duplication
+- **Where:** `apps/web/src/pages/{LoginPage,RegisterPage,CampaignsListPage,CampaignNewPage,CampaignDetailPage}.tsx`.
+- **Issue:** Each page defines its own `extractApiError` (~10 LOC) and `alertProps` (~7 LOC). The frontend agent justified this in the log (each consumer wants slightly different fields, e.g. CampaignDetailPage cares about HTTP `status` for 404 routing). Net duplication is ~70 LOC.
+- **Fix shape:** centralize as `apps/web/src/lib/error.ts` exporting a single `extractApiError(err): { status?, code?, fallback? }` and an `alertProps(e)` helper. The strict-mode `exactOptionalPropertyTypes: true` constraint that drove the local helpers can be solved once in the shared module.
+- **When:** F6 if there's appetite, otherwise let it be — the duplication is intentional and well-documented.

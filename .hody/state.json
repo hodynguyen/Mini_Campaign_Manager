@@ -1,18 +1,18 @@
 {
-  "workflow_id": "feat-schedule-send-20260508",
-  "feature": "F4 — Schedule + Send (async) + Stats refresh",
-  "type": "api-endpoint",
+  "workflow_id": "feat-frontend-pages-20260508",
+  "feature": "F5 — Frontend pages + UX polish",
+  "type": "ui-change",
   "status": "completed",
   "execution_mode": "auto",
   "spec_confirmed": true,
-  "spec_file": "spec-schedule-send.md",
-  "log_file": "log-schedule-send.md",
-  "created_at": "2026-05-08T13:45:00Z",
-  "updated_at": "2026-05-08T16:30:00Z",
+  "spec_file": "spec-frontend-pages.md",
+  "log_file": "log-frontend-pages.md",
+  "created_at": "2026-05-08T15:00:00Z",
+  "updated_at": "2026-05-08T17:30:00Z",
   "phases": {
     "THINK": { "agents": ["architect"], "completed": ["architect"], "active": null, "skipped": [] },
-    "BUILD": { "agents": ["backend"], "completed": ["backend"], "active": null, "skipped": [] },
-    "VERIFY": { "agents": ["integration-tester", "code-reviewer"], "completed": ["integration-tester", "code-reviewer"], "active": null, "skipped": [] },
+    "BUILD": { "agents": ["frontend"], "completed": ["frontend"], "active": null, "skipped": [] },
+    "VERIFY": { "agents": ["unit-tester", "code-reviewer"], "completed": ["unit-tester", "code-reviewer"], "active": null, "skipped": [] },
     "SHIP": { "agents": [], "completed": [], "active": null, "skipped": [] }
   },
   "phase_order": ["THINK", "BUILD", "VERIFY", "SHIP"],
@@ -20,47 +20,47 @@
     {
       "agent": "architect",
       "phase": "THINK",
-      "completed_at": "2026-05-08T14:30:00Z",
-      "output_summary": "F4 schedule/send scaffolding: zod schemas (scheduleSchema with offset-aware ISO + future-time check deferred to service; openTrackParamsSchema for UUID path params), service skeletons with three ATOMIC_*_SQL constants (closes F3 race), worker.ts created with paired runSendWorker/runSendWorkerForTests (production never-throws, test variant awaitable for deterministic sequencing), controller skeletons (send controller's setImmediate kick documented post-202), 3 new routes wired in spec mount order, env additions (SEND_SUCCESS_RATE=0.8, SEND_WORKER_DELAY_MS=0) + .env.example, packages/shared interfaces (ScheduleCampaignRequest, SendCampaignResponse). ADR-002 flipped proposed→accepted with full implementation detail. F3 atomic-transitions tech-debt entry marked RESOLVED. tsc clean, eslint 0 errors, all 59 F3 tests still green.",
+      "completed_at": "2026-05-08T15:30:00Z",
+      "output_summary": "F5 frontend scaffolding: 10 skeleton files (5 pages + 3 component bodies-TODO + 2 hook decl-only), 4 filled-in files (ProtectedRoute, StatusBadge, ErrorAlert, types/api-error.ts), App.tsx routing shell + auth store rename to login/logout + lib/api.ts interceptor contract docs. tsc/vite build clean, lint 0 errors, 1/1 tests pass. Locked: error code map, status color map, polling rule (1500ms gated by status==='sending'), hook signatures + queryKeys, axios 401 handler.",
       "kb_files_modified": [
         ".hody/knowledge/architecture.md",
-        ".hody/knowledge/decisions.md",
-        ".hody/knowledge/api-contracts.md",
-        ".hody/knowledge/tech-debt.md",
-        ".hody/knowledge/log-schedule-send.md"
+        ".hody/knowledge/log-frontend-pages.md"
       ]
     },
     {
-      "agent": "backend",
+      "agent": "frontend",
       "phase": "BUILD",
-      "completed_at": "2026-05-08T15:15:00Z",
-      "output_summary": "F4 service/worker/controller bodies filled per architect's hand-off. service.scheduleCampaign uses server-clock future check (400 SCHEDULED_AT_IN_PAST) + ATOMIC_SCHEDULE_SQL with affectedRows-then-fallback-SELECT (404 vs 409 CAMPAIGN_NOT_SCHEDULABLE without existence leak). service.sendCampaign uses ATOMIC_SEND_SQL same pattern, returns { id, status: 'sending' } (409 CAMPAIGN_NOT_SENDABLE). service.trackOpen uses ATOMIC_OPEN_TRACK_SQL silently (no throw — endpoint always 204; SQL JOIN embeds tenancy + idempotency guards). worker.runSendWorker (production never-throws) wraps runSendWorkerForTests (awaitable for tests) in try/catch+console.error. runSendWorkerForTests: optional SEND_WORKER_DELAY_MS setTimeout → findAll pending CRs → JS-side random-bucket → at most 2 bulk CampaignRecipient.update calls (sentAt stamped on both buckets) → atomic ATOMIC_SENDING_TO_SENT_SQL flip (WHERE status='sending'). controller.sendCampaign kicks worker via setImmediate AFTER res.status(202).json — verified ordering. controller.trackOpen validates both UUID params via openTrackParamsSchema. tsc clean, eslint 0 errors (1 pre-existing unrelated warning), all 59 F3 tests still green. F4 endpoints wired and ready for integration-tester.",
+      "completed_at": "2026-05-08T16:30:00Z",
+      "output_summary": "F5 frontend implementation: filled in all 10 architect skeletons (5 pages + 3 component bodies + 2 hook files) + wired axios interceptors in lib/api.ts. All architect-locked decisions honored: messageFor for ALL error display, polling 1500ms gated by data.status==='sending', send mutation does NOT mark sent (optimistic flip to 'sending' only — polling carries it), schedule setQueryData merges into existing CampaignDetail to preserve stats/recipients, locked queryKeys + hook signatures unchanged. Added window.matchMedia polyfill in test-setup.ts so AntD responsive grid works under jsdom. tsc-b 0 errors, vite build clean (1.3 MB / 413 kB gzip), yarn lint 0 errors (1 pre-existing api warning), 1/1 tests pass.",
       "kb_files_modified": [
-        ".hody/knowledge/log-schedule-send.md"
+        ".hody/knowledge/log-frontend-pages.md"
       ]
     },
     {
-      "agent": "integration-tester",
+      "agent": "unit-tester",
       "phase": "VERIFY",
-      "completed_at": "2026-05-08T16:00:00Z",
-      "output_summary": "F4 integration tests added across 3 new files. campaigns.schedule.test.ts (6 tests: happy / past-time SCHEDULED_AT_IN_PAST / wrong-state CAMPAIGN_NOT_SCHEDULABLE / tenancy-404 / non-ISO VALIDATION_ERROR / strict-body VALIDATION_ERROR). campaigns.send.test.ts (6 tests: happy with await runSendWorkerForTests + 5 recipients / 100-recipient distribution with both buckets non-empty / 202-not-200 shape / wrong-state CAMPAIGN_NOT_SENDABLE / tenancy-404 / empty-recipients still flips campaign sent). campaigns.open-track.test.ts (7 tests: happy stamps opened_at / idempotent second call doesn't advance opened_at / pending no-op / failed no-op / foreign-tenancy silent 204 with row state unchanged / non-UUID 400 VALIDATION_ERROR / E2E send+open producing non-zero open_rate). All 19 new tests assert via direct DB queries (CampaignRecipient.findByPk) where the endpoint is silent. F3 regressions: zero. Total: 78/78 tests pass across 12 suites (was 59 → now 78 ≥ 66 target). Lint 0 errors, build clean. No source bugs found; F4 implementation matched the architect/backend hand-offs exactly. Ready for code-reviewer.",
+      "completed_at": "2026-05-08T17:00:00Z",
+      "output_summary": "F5 component tests: 4 new test files (1 component + 3 page tests) covering the architect-locked plan. StatusBadge.test.tsx asserts the locked color/label map across all 4 statuses via it.each (4 cases). LoginPage.happy.test.tsx mocks api.post + useNavigate, asserts auth store updated AND navigate('/campaigns', { replace: true }) called. LoginPage.401.test.tsx rejects with a real AxiosError carrying INVALID_CREDENTIALS, asserts the EXACT messageFor-translated string 'Invalid email or password.' (trailing period proves we went through messageFor, not error.message). CampaignDetailPage.send.test.tsx exercises the full draft -> click Send -> POST 202 -> optimistic 'sending' UI -> polling tick (1500ms real timer) -> 'sent' StatusBadge, asserting the .ant-tag-success class to disambiguate from the StatsBlock 'Sent' Statistic label. vi.mock for both api and react-router-dom (with vi.importActual). Final: 8/8 tests pass across 5 files, tsc + vite build clean, yarn lint 0 errors. No source bugs found.",
       "kb_files_modified": [
-        ".hody/knowledge/log-schedule-send.md"
+        ".hody/knowledge/log-frontend-pages.md"
       ]
     },
     {
       "agent": "code-reviewer",
       "phase": "VERIFY",
-      "completed_at": "2026-05-08T16:30:00Z",
-      "output_summary": "F4 review verdict: APPROVED. No BLOCKER/HIGH/MEDIUM findings; only LOW notes (worker console.error style consistent with project; Math.random non-crypto acceptable for simulated send; 10ms idempotency-test sleep pragmatic). All 9 review-checklist sections (A. Atomicity / B. Worker / C. Open-track auth / D. Validation / E. Error mapping / F. Resource cleanup / G. Privacy / H. Test signal / I. ADR consistency) pass. Schedule SQL is single UPDATE with WHERE status='draft' + tenancy + affectedRows check + tenancy-scoped follow-up SELECT for 404/409 distinction (no existence leak); send SQL same pattern with status IN ('draft','scheduled'); worker's sending→sent flip is atomic with WHERE status='sending'; open-track SQL has tenancy JOIN inline. Worker is fire-and-forget via setImmediate AFTER res.json (verified line ordering); production wrapper try/catch never throws; test variant awaitable; bucket+bulk update at most 2 UPDATEs with empty-bucket skip; sentAt stamped on both buckets; Math.random < SEND_SUCCESS_RATE (strict <). requireAuth mounted on /campaigns covers nested open-track route; tenancy in SQL not just middleware; foreign-tenant test asserts row UNCHANGED. scheduleSchema.strict() rejects extra keys; openTrackParamsSchema validates UUIDs. ValidationError=400, NotFoundError=404, ConflictError=409 mapping correct. SEND_WORKER_DELAY_MS=0 short-circuits setTimeout. Open-track always 204; error handler doesn't leak. ADR-002 accepted with BullMQ preserved as alternative; F3 race tech-debt entry marked RESOLVED IN F4. All 11 DoD checkboxes from spec-schedule-send.md pass. Build clean, lint 0 errors, 78/78 tests across 12 suites. No fixes applied (none required). Ready for finalize/commit/push.",
+      "completed_at": "2026-05-08T17:30:00Z",
+      "output_summary": "F5 code review: APPROVED-WITH-NITS. Full read of all 18 frontend source files + 4 test files. Re-ran tests (8/8 pass), build (tsc + vite clean), lint (0 errors), and a vite-dev smoke (boots in 184ms, curl /=200). 0 BLOCKERs, 0 HIGHs. 1 MEDIUM (static notification.error API misses ConfigProvider theming) + 3 LOWs (destroyOnClose deprecation in AntD v5, 401 redirect-loop guard uses startsWith, per-page extractApiError duplication) logged in tech-debt.md. 5 PRAISEs noted: messageFor everywhere, send mutation does NOT mark sent (optimistic 'sending' + polling carries it), polling self-stops via function-form refetchInterval, token in-memory only (zustand, no localStorage/sessionStorage/cookie), zero dangerouslySetInnerHTML. DoD: 8/9 unambiguous green; README quick-start deferred to finalize. Workflow status flipped to 'verified'.",
       "kb_files_modified": [
-        ".hody/knowledge/log-schedule-send.md"
+        ".hody/knowledge/log-frontend-pages.md",
+        ".hody/knowledge/tech-debt.md",
+        ".hody/state.json"
       ]
     }
   ],
   "previous_workflows": [
     "feat-scaffold-and-dev-env-20260506",
     "feat-auth-20260506",
-    "feat-campaigns-crud-20260508"
+    "feat-campaigns-crud-20260508",
+    "feat-schedule-send-20260508"
   ]
 }

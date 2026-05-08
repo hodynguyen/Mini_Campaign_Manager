@@ -686,3 +686,190 @@ within the delay window, then `await runSendWorkerForTests(id)` to drain.
   the spec's own "tests are awaited by exposing a Promise<void>" idea, just
   named explicitly so production code can never accidentally serialize a
   request behind it.
+
+---
+
+## F5 Frontend — Locked Decisions
+
+> Architect THINK output for spec-frontend-pages.md. Skeleton files in
+> place; frontend agent fills bodies in BUILD. Names, signatures, and the
+> error/status maps below are LOCKED — frontend MUST NOT change them.
+
+### Component / file map (apps/web/src delta)
+
+```
+apps/web/src/
+├── App.tsx                            (UPDATED: 6 routes + 2 redirects)
+├── lib/
+│   ├── api.ts                         (UPDATED: interceptor TODOs documented)
+│   └── queryClient.ts                 (unchanged from F1)
+├── store/
+│   └── auth.ts                        (UPDATED: { token, user, login(auth), logout() })
+├── pages/                             (NEW)
+│   ├── LoginPage.tsx                  TODO body
+│   ├── RegisterPage.tsx               TODO body
+│   ├── CampaignsListPage.tsx          TODO body
+│   ├── CampaignNewPage.tsx            TODO body
+│   └── CampaignDetailPage.tsx         TODO body
+├── components/                        (NEW)
+│   ├── ProtectedRoute.tsx             FILLED IN (small, locked)
+│   ├── StatusBadge.tsx                FILLED IN (status -> Tag color/label map)
+│   ├── StatsBlock.tsx                 TODO body (interface only)
+│   ├── RecipientsTable.tsx            TODO body (interface only)
+│   ├── CampaignActions.tsx            TODO body (interface only)
+│   └── ErrorAlert.tsx                 FILLED IN (uses messageFor)
+├── hooks/                             (NEW)
+│   ├── useAuth.ts                     declare-only (frontend implements)
+│   └── useCampaigns.ts                declare-only (frontend implements)
+└── types/
+    └── api-error.ts                   FILLED IN (ERROR_MESSAGES + messageFor + isApiErrorResponse)
+```
+
+### Component diagram
+
+```
+App.tsx (Routes)
+├── /login              -> LoginPage         ──┐
+├── /register           -> RegisterPage      ──┤ public
+├── /campaigns          -> ProtectedRoute(CampaignsListPage)
+├── /campaigns/new      -> ProtectedRoute(CampaignNewPage)
+└── /campaigns/:id      -> ProtectedRoute(CampaignDetailPage)
+                              │
+                              └── header + StatusBadge + StatsBlock
+                                  + RecipientsTable + CampaignActions
+
+Cross-cutting:
+  ErrorAlert       — used by every page on failed mutations / queries
+  useAuthStore     — read by ProtectedRoute, axios interceptor, useLogout
+  api (axios)      — single instance; interceptors injected in lib/api.ts
+  queryClient      — shared react-query client (lib/queryClient.ts)
+```
+
+### Error code -> user message map (authority)
+
+The map lives in `apps/web/src/types/api-error.ts` as `ERROR_MESSAGES` +
+`messageFor(code, fallback)`. **Pages and components MUST pattern-match on
+`error.code`, never on `error.message`.** Codes covered:
+
+| Code | Source | User message |
+|---|---|---|
+| `VALIDATION_ERROR` | zod (any endpoint) | "The form has invalid input. Check the highlighted fields." |
+| `EMAIL_TAKEN` | POST /auth/register | "An account with this email already exists." |
+| `INVALID_CREDENTIALS` | POST /auth/login | "Invalid email or password." |
+| `UNAUTHORIZED` / `INVALID_TOKEN` / `TOKEN_EXPIRED` | requireAuth middleware | "Your session has expired. Please log in again." |
+| `CAMPAIGN_NOT_FOUND` | GET/PATCH/DELETE/schedule/send /:id | "Campaign not found." |
+| `CAMPAIGN_NOT_EDITABLE` | PATCH /:id (non-draft) | "This campaign can no longer be edited (it has been scheduled or sent)." |
+| `CAMPAIGN_NOT_SCHEDULABLE` | POST /:id/schedule | "This campaign cannot be scheduled (likely already scheduled or sent)." |
+| `CAMPAIGN_NOT_SENDABLE` | POST /:id/send | "This campaign cannot be sent (likely already sent)." |
+| `SCHEDULED_AT_IN_PAST` | POST /:id/schedule | "Schedule date must be in the future." |
+| `RECIPIENT_EMAIL_TAKEN` | POST /recipients | "A recipient with this email already exists." |
+| `INTERNAL` | unhandled 500 | "Something went wrong on our side. Please try again." |
+
+Unknown codes fall back to `messageFor`'s `fallback` arg (typically
+`err.response?.data?.error?.message`) and finally to a literal
+`'Unknown error.'` — never blank, never a stack trace.
+
+### Status -> AntD color/label map (authority)
+
+`apps/web/src/components/StatusBadge.tsx` `STATUS_MAP` is canonical:
+
+| status | AntD `Tag` color | label |
+|---|---|---|
+| `draft` | `default` (grey) | `Draft` |
+| `scheduled` | `processing` (blue, animated dot) | `Scheduled` |
+| `sending` | `warning` (orange) | `Sending…` |
+| `sent` | `success` (green) | `Sent` |
+
+The `RecipientsTable` recipient-status tag uses a parallel-but-distinct
+mapping (`pending -> default`, `sent -> success`, `failed -> error`); it
+is documented in that component's JSDoc.
+
+### Polling rule (locked)
+
+`useCampaign(id, opts?)` enables react-query `refetchInterval: 1500` ONLY
+when `opts.polling === true` AND the cached `data?.status === 'sending'`.
+Any other status (or `opts.polling === false`/undefined) sets
+`refetchInterval: false` so polling stops immediately as soon as the
+backend flips to `sent`. `refetchIntervalInBackground: false` so a
+hidden tab doesn't keep hitting the API.
+
+Why 1500ms: visible-state UX (the user is staring at the page) without
+hammering the API across multiple tabs / Strict Mode double-runs in dev.
+
+### Hook signatures (locked)
+
+```ts
+// useAuth.ts
+useLoginMutation():    UseMutationResult<AuthResponse, unknown, LoginRequest>
+useRegisterMutation(): UseMutationResult<User, unknown, RegisterRequest>
+useLogout():           () => void   // clears store + queryClient.clear() + navigate('/login')
+
+// useCampaigns.ts
+useCampaignsList(query: ListQuery):       UseQueryResult<PaginatedList<Campaign>>
+useCampaign(id, opts?: { polling?: boolean }): UseQueryResult<CampaignDetail>
+useCreateCampaignMutation():   UseMutationResult<Campaign, unknown, CreateCampaignRequest>
+useScheduleCampaignMutation(): UseMutationResult<Campaign, unknown, { id } & ScheduleCampaignRequest>
+useSendCampaignMutation():     UseMutationResult<SendCampaignResponse, unknown, { id }>
+useDeleteCampaignMutation():   UseMutationResult<void, unknown, { id }>
+```
+
+QueryKeys (locked so invalidation works across mutations):
+- list page: `['campaigns', { page, limit, status }]`
+- detail page: `['campaign', id]`
+
+### Axios interceptor contract (locked; frontend implements)
+
+Documented inline in `apps/web/src/lib/api.ts`:
+
+- **Request**: read `useAuthStore.getState().token` (NOT the React hook —
+  interceptors run outside the render tree); if non-null, set
+  `config.headers.Authorization = \`Bearer ${token}\``. Always return
+  `config` (don't reject on missing token — public endpoints exist).
+- **Response**: on success pass through; on error if `status === 401`,
+  `useAuthStore.getState().logout()` then `window.location.href =
+  '/login'` (hard redirect, simpler than threading a `useNavigate`
+  callback through the interceptor) then `Promise.reject(error)`.
+
+### Routing shell
+
+```
+/login           -> LoginPage           (public)
+/register        -> RegisterPage        (public)
+/campaigns       -> ProtectedRoute(CampaignsListPage)
+/campaigns/new   -> ProtectedRoute(CampaignNewPage)
+/campaigns/:id   -> ProtectedRoute(CampaignDetailPage)
+/                -> Navigate to /campaigns
+*                -> Navigate to /campaigns
+```
+
+`ProtectedRoute` reads `useAuthStore(s => s.token)`; falsy -> `<Navigate
+to="/login" replace />`. The 401-mid-session case is the interceptor's
+responsibility (above).
+
+### F4 carry-forward UX rules baked into the design
+
+1. **Send is 202 + `status='sending'`** — `useSendCampaignMutation` does
+   NOT assume success; the campaign detail polls (`refetchInterval:
+   1500`) until status leaves `sending`. The Send button enters a
+   `loading` state and CampaignActions hides further actions while
+   sending.
+2. **Open-tracking is silent 204** — `CampaignDetailPage` re-fetches
+   `['campaign', id]` after invoking the open endpoint (or after the
+   demo seed runs); there is no per-call success signal from the API.
+3. **Pattern-match `error.code` ONLY** — `messageFor(err.code)` is the
+   ONLY way to translate errors to UI copy. Never branch on or render
+   `err.message` directly.
+
+### Out-of-scope / explicitly deferred
+
+- Edit campaign UI (PATCH from the frontend) — F6.
+- Recipient management standalone page — F6.
+- Token persistence (localStorage / cookie) — ADR-003 stays in-memory.
+- E2E tests, i18n, dark mode, mobile-first.
+
+### Deviations from spec-frontend-pages.md
+
+- None on file/path/contract level. The store skeleton's existing
+  `setAuth` / `clear` names from F1 were renamed to `login(auth)` /
+  `logout()` per the spec's "Zustand store skeleton" snippet — a strict
+  superset of the F1 placeholder, no other file referenced the old names.
