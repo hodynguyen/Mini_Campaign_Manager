@@ -13,9 +13,15 @@
 import { createApp } from './app';
 import { env } from './config/env';
 import { pingDatabase } from './db/sequelize';
-// Side-effect import: registers the User model on the sequelize instance.
-// Without this import, Sequelize wouldn't know about the model at runtime.
+// Side-effect imports: register every model on the sequelize singleton AND
+// wire associations exactly once at process boot. Without these, Sequelize
+// wouldn't know about the models at runtime, and any `include: [...]` query
+// would fail with "X is not associated to Y".
 import './db/models/User';
+import './db/models/Campaign';
+import './db/models/Recipient';
+import './db/models/CampaignRecipient';
+import './db/associations';
 
 (async (): Promise<void> => {
   const ok = await pingDatabase();

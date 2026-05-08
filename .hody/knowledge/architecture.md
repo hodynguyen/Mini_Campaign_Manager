@@ -323,3 +323,193 @@ The CSV transform happens in zod (`.transform`) so consumers always read
 - **Schemas vs types**: spec hints both options without picking; I pick Option B
   (types-in-shared, schemas-in-api) for bundle hygiene. ADR-010.
 - Everything else matches spec exactly.
+
+---
+
+## F3 Campaigns CRUD — Locked Decisions
+
+> Author: architect (THINK phase, F3). Date: 2026-05-08.
+> Scope: tooling + scaffold contracts that BUILD must follow without redeciding.
+> Spec: `.hody/knowledge/spec-campaigns-crud.md`.
+
+### File map (apps/api delta — created by THINK as skeletons; BUILD fills bodies)
+
+```
+apps/api/
+├── migrations/
+│   ├── 0002-create-campaigns.ts              [THINK] CREATE TYPE campaign_status,
+│   │                                                  CREATE TABLE campaigns + 2 indexes.
+│   ├── 0003-create-recipients.ts             [THINK] CREATE TABLE recipients (CITEXT email UNIQUE).
+│   └── 0004-create-campaign-recipients.ts    [THINK] CREATE TYPE + join table + FK constraints.
+├── src/
+│   ├── db/
+│   │   ├── models/
+│   │   │   ├── Campaign.ts                   [THINK] init() + types only.
+│   │   │   ├── Recipient.ts                  [THINK] init() + types only.
+│   │   │   └── CampaignRecipient.ts          [THINK] init() + types only.
+│   │   └── associations.ts                   [THINK] All hasMany/belongsTo wired here.
+│   ├── campaigns/
+│   │   ├── schema.ts                         [THINK] zod create/update/list schemas.
+│   │   ├── service.ts                        [THINK] Function signatures + TODO bodies.
+│   │   ├── stats.ts                          [THINK] STATS_SQL constant + TODO compute fn.
+│   │   ├── controller.ts                     [BUILD] Thin: parse(zod) -> service -> JSON.
+│   │   └── routes.ts                         [BUILD] Router. requireAuth ALL routes.
+│   ├── recipients/
+│   │   ├── schema.ts                         [THINK] zod create/list schemas.
+│   │   ├── service.ts                        [THINK] Function signatures + TODO bodies.
+│   │   ├── controller.ts                     [BUILD]
+│   │   └── routes.ts                         [BUILD]
+│   ├── app.ts                                [BUILD-EDIT] Mount /campaigns + /recipients
+│   │                                                       behind requireAuth (see "Mount order").
+│   └── index.ts                              [BUILD-EDIT] Add side-effect import
+│                                                       of './db/associations'.
+└── tests/
+    └── helpers/server.ts                     [THINK-EDIT] Side-effect imports for new
+                                                       models + associations; truncate()
+                                                       extended to wipe new tables.
+
+packages/shared/src/index.ts                  [THINK-EDIT] Type-only exports added: Campaign,
+                                                       CampaignStatus, CampaignRecipientStatus,
+                                                       Recipient, CampaignRecipientRow,
+                                                       CampaignStats, CampaignDetail,
+                                                       CreateCampaignRequest,
+                                                       UpdateCampaignRequest, PaginatedList<T>.
+```
+
+### Model relationship graph
+
+```
+                ┌────────────┐
+                │   users    │  (F2)
+                └─────┬──────┘
+                      │ 1
+                      │
+                      │ N
+                ┌─────▼──────┐
+                │ campaigns  │
+                │  (F3)      │
+                └─────┬──────┘
+                      │ 1
+                      │
+                      │ N
+            ┌─────────▼─────────┐
+            │ campaign_         │
+            │  recipients       │   (M:N with status / sent_at / opened_at)
+            │  (F3, join)       │
+            └─────────┬─────────┘
+                      │ N
+                      │
+                      │ 1
+                ┌─────▼──────┐
+                │ recipients │  (F3, tenant-shared per ADR-012)
+                └────────────┘
+
+FK constraints:
+  campaigns.created_by             -> users.id           ON DELETE CASCADE
+  campaign_recipients.campaign_id  -> campaigns.id       ON DELETE CASCADE
+  campaign_recipients.recipient_id -> recipients.id      ON DELETE RESTRICT
+```
+
+Sequelize associations (in `src/db/associations.ts`):
+
+| From → To                              | Relation       | FK              | Alias (`as`)             |
+|----------------------------------------|----------------|-----------------|--------------------------|
+| User → Campaign                        | hasMany        | created_by      | `campaigns`              |
+| Campaign → User                        | belongsTo      | created_by      | `creator`                |
+| Campaign → CampaignRecipient           | hasMany        | campaign_id     | `campaignRecipients`     |
+| CampaignRecipient → Campaign           | belongsTo      | campaign_id     | `campaign`               |
+| Recipient → CampaignRecipient          | hasMany        | recipient_id    | `campaignRecipients`     |
+| CampaignRecipient → Recipient          | belongsTo      | recipient_id    | `recipient`              |
+| Campaign ↔ Recipient (M:N via CR)      | belongsToMany  | through CR      | `recipients` / `campaigns` |
+
+### Stats query (single SQL, no N+1)
+
+Constant lives at `src/campaigns/stats.ts` as `STATS_SQL`:
+
+```sql
+SELECT
+  COUNT(*)::int                                          AS total,
+  COUNT(*) FILTER (WHERE status = 'sent')::int           AS sent,
+  COUNT(*) FILTER (WHERE status = 'failed')::int         AS failed,
+  COUNT(*) FILTER (WHERE opened_at IS NOT NULL)::int     AS opened
+FROM campaign_recipients
+WHERE campaign_id = :campaignId;
+```
+
+Bound via:
+
+```ts
+const rows = await sequelize.query<StatsRow>(STATS_SQL, {
+  replacements: { campaignId },
+  type: QueryTypes.SELECT,
+});
+```
+
+Then in TS:
+
+```ts
+const send_rate = total > 0 ? sent / total : 0;
+const open_rate = sent  > 0 ? opened / sent : 0;
+```
+
+Why this shape:
+- `FILTER (WHERE ...)` is Postgres-native — one pass over the table.
+- `::int` cast prevents COUNT-as-bigint coming back as a string.
+- `:campaignId` is bind-bound, never interpolated → SQL-injection-safe.
+- Tenancy is enforced UPSTREAM in `service.getCampaignDetail` — this function
+  trusts the caller. NEVER call it without a prior `findOne({ where: { id, created_by: userId } })`.
+
+### List query shape (paginated, tenant-scoped)
+
+```sql
+SELECT *
+FROM campaigns
+WHERE created_by = :userId
+  AND ($status::campaign_status IS NULL OR status = $status)
+ORDER BY updated_at DESC
+LIMIT :limit OFFSET :offset;
+```
+
+`offset = (page - 1) * limit`. Backend may use `Campaign.findAndCountAll`
+(Sequelize gives both rows + total in one call) instead of writing the SQL
+by hand — both produce the same result.
+
+### Index plan
+
+| Index                                                      | Where it helps                                              |
+|------------------------------------------------------------|-------------------------------------------------------------|
+| `campaigns(created_by, updated_at DESC)`                   | `GET /campaigns` filter + sort.                             |
+| `campaigns(status, scheduled_at) WHERE status='scheduled'` | F4 worker scans due-soon scheduled campaigns; partial = small. |
+| `recipients(email) UNIQUE`                                 | Upsert-by-email + duplicate detection.                      |
+| `campaign_recipients(campaign_id, recipient_id) UNIQUE`    | Prevents same recipient attached twice to same campaign.    |
+| `campaign_recipients(campaign_id)`                         | Stats aggregate `WHERE campaign_id = :id`.                  |
+
+### Mount order in app.ts (BUILD must add)
+
+After existing `/auth` mount, BEFORE `errorHandler`:
+
+```ts
+import campaignsRouter from './campaigns/routes';
+import recipientsRouter from './recipients/routes';
+import { requireAuth } from './auth/middleware';
+
+// ...
+app.use('/auth', authRouter);
+app.use('/campaigns', requireAuth, campaignsRouter);   // NEW
+app.use('/recipients', requireAuth, recipientsRouter); // NEW
+app.use('/health', healthRouter);
+
+app.use(errorHandler); // must remain LAST
+```
+
+`requireAuth` is mounted at the router level so EVERY route under `/campaigns`
+and `/recipients` is protected. Individual route handlers don't need to
+re-apply it. `req.user.id` is the source of `userId` for service calls.
+
+### Deviations from spec-campaigns-crud.md
+
+- None. All file paths, schema shapes, and API contracts match the spec.
+- Added `id` UUID PK on `campaign_recipients` (spec implies it but doesn't
+  enforce it). The composite (campaign_id, recipient_id) remains UNIQUE at
+  the table level. Reason: simplifies row-level operations from JS land
+  (e.g. F4 open-tracking endpoint can `findByPk`).

@@ -24,9 +24,12 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import { requireAuth } from './auth/middleware';
 import authRouter from './auth/routes';
+import campaignsRouter from './campaigns/routes';
 import { env } from './config/env';
 import { errorHandler } from './errors/handler';
+import recipientsRouter from './recipients/routes';
 import healthRouter from './routes/health';
 
 export function createApp(): Express {
@@ -49,6 +52,10 @@ export function createApp(): Express {
   // Routes
   app.use('/auth', authRouter);
   app.use('/health', healthRouter);
+  // F3: campaigns + recipients. Both behind requireAuth — tenancy + auth are
+  // load-bearing. Mounted AFTER /auth and BEFORE the global error handler.
+  app.use('/campaigns', requireAuth, campaignsRouter);
+  app.use('/recipients', requireAuth, recipientsRouter);
 
   // Global error handler — must be last and must have the 4-arg signature so
   // Express dispatches errors here. See ./errors/handler for the dispatch

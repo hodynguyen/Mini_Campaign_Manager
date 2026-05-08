@@ -44,3 +44,44 @@ status: active
 - **Issue:** RFC 7235 says auth-scheme is case-insensitive; this middleware accepts only the literal `"Bearer "`. A strict-RFC client sending `bearer ` would be 401'd.
 - **Fix:** lowercase the scheme before comparing, or use `scheme.toLowerCase() !== 'bearer'`.
 - **When:** if/when a third-party client ever integrates. Not assignment-blocking.
+
+## F3 Campaigns/Recipients — code-reviewer findings (2026-05-08)
+
+---
+tags: [tech-debt, campaigns, medium, low]
+created: 2026-05-08
+author_agent: code-reviewer
+status: active
+---
+
+### MEDIUM — `updateCampaign` find-then-update race window
+- **Where:** `apps/api/src/campaigns/service.ts:259-291` (and same shape in `deleteCampaign`).
+- **Issue:** `findOne` + status check + `update()` are not atomic. If a concurrent F4 transition flips `status` from `draft` to `scheduled` between the find and the update, the PATCH would silently apply to a non-draft campaign, defeating the state-machine guard.
+- **Why deferred:** F3 has no public endpoint that transitions status from draft, so the race is currently unreachable from the API surface. Becomes reachable in F4 (`POST /:id/schedule`, `POST /:id/send`).
+- **Fix shape:** wrap the find+check+update in `sequelize.transaction({ isolationLevel: 'SERIALIZABLE' }, ...)` OR change the `update()` call to `Campaign.update(updates, { where: { id, createdBy, status: 'draft' } })` and check `affectedRows === 1` (raises 409 on 0). The `WHERE status='draft'` clause makes the guard atomic at the SQL level. Mirror the same fix in `deleteCampaign`.
+- **When:** F4 — required before schedule/send endpoints land.
+
+### MEDIUM — `recipient_emails` upsert is a sequential await loop
+- **Where:** `apps/api/src/campaigns/service.ts:152-164`.
+- **Issue:** Each `Recipient.findOrCreate` in the loop is a separate round-trip, sequential. For the spec cap of 1000 emails this is up to 1000 round-trips inside a single transaction. Worst-case latency on a real campaign create is unbounded by anything except request timeout.
+- **Why deferred:** typical inputs are tiny (handful of emails); 1000-email payload is a stress edge. Spec budget for F3 is ~2h.
+- **Fix shape:** swap the loop for a single bulk upsert — `Recipient.bulkCreate(rows, { transaction: t, updateOnDuplicate: ['name'], ignoreDuplicates: true })` then `Recipient.findAll({ where: { email: { [Op.in]: emails } }, transaction: t })` to retrieve ids. One round-trip per side instead of N.
+- **When:** when bulk import endpoints land or first time a 1000-email payload is observed in metrics.
+
+### LOW — `bulkCreate({ ignoreDuplicates: true })` masks future genuine duplicates
+- **Where:** `apps/api/src/campaigns/service.ts:173-176`.
+- **Issue:** the JS-side `Set` already dedupes, so `ignoreDuplicates: true` is dead-code defense in F3. If a future caller passes pre-deduped recipient ids that collide for a legitimate reason (re-attach), Sequelize will silently swallow it instead of surfacing the conflict.
+- **Fix shape:** drop `ignoreDuplicates: true` (the Set dedup is the canonical guard) OR leave it but explicitly comment that it is a belt-and-braces guard that future maintainers should NOT rely on.
+- **When:** next F3 touch-up, or never if the comment is judged enough.
+
+### LOW — `updateCampaign` JSDoc claims `update({})` bumps `updated_at`
+- **Where:** `apps/api/src/campaigns/service.ts:256-258` (JSDoc).
+- **Issue:** Comment says "`update()` still bumps `updated_at` via Sequelize default". Verified via DEBUG_SQL trace — Sequelize sees no changed fields and skips the UPDATE entirely; `updated_at` is NOT bumped on empty-patch PATCH. The behavior is benign (idempotent no-op), but the doc is wrong.
+- **Fix shape:** rephrase to "Sequelize sees no changed fields and skips the UPDATE; `updated_at` is unchanged on empty patch — list ordering is naturally stable."
+- **When:** trivial doc fix, can land in any campaigns/service.ts touch.
+
+### LOW — Recipient `name` fallback to email-prefix on auto-upsert
+- **Where:** `apps/api/src/campaigns/service.ts:159`.
+- **Issue:** When `POST /campaigns` upserts a brand-new recipient by email alone, the recipient's `name` is set to `email.split('@')[0]`. For `"Foo+Bar@x.com"`, the prefix is `"foo+bar"` — odd display name. No big deal for the assignment but worth a glance.
+- **Fix shape:** capitalize / strip plus-tags, or default to the full email until the user PATCHes. Optional UX polish.
+- **When:** UX pass on the recipients list page in F5.

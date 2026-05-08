@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "built_at": "2026-05-07T03:48:53Z",
+  "built_at": "2026-05-08T07:03:48Z",
   "entries": [
     {
       "file": "api-contracts.md",
@@ -101,7 +101,7 @@
     },
     {
       "file": "architecture.md",
-      "total_lines": 325,
+      "total_lines": 515,
       "has_frontmatter": true,
       "tags": [
         "architecture",
@@ -222,6 +222,46 @@
           "heading": "Deviations from spec-auth.md",
           "level": 3,
           "line": 311
+        },
+        {
+          "heading": "F3 Campaigns CRUD \u2014 Locked Decisions",
+          "level": 2,
+          "line": 322
+        },
+        {
+          "heading": "File map (apps/api delta \u2014 created by THINK as skeletons; BUILD fills bodies)",
+          "level": 3,
+          "line": 328
+        },
+        {
+          "heading": "Model relationship graph",
+          "level": 3,
+          "line": 372
+        },
+        {
+          "heading": "Stats query (single SQL, no N+1)",
+          "level": 3,
+          "line": 418
+        },
+        {
+          "heading": "List query shape (paginated, tenant-scoped)",
+          "level": 3,
+          "line": 455
+        },
+        {
+          "heading": "Index plan",
+          "level": 3,
+          "line": 470
+        },
+        {
+          "heading": "Mount order in app.ts (BUILD must add)",
+          "level": 3,
+          "line": 480
+        },
+        {
+          "heading": "Deviations from spec-campaigns-crud.md",
+          "level": 3,
+          "line": 502
         }
       ]
     },
@@ -322,7 +362,7 @@
     },
     {
       "file": "decisions.md",
-      "total_lines": 274,
+      "total_lines": 336,
       "has_frontmatter": true,
       "tags": [
         "decisions",
@@ -392,6 +432,11 @@
           "heading": "ADR-011: JWT shape, signing, and expiry",
           "level": 2,
           "line": 228
+        },
+        {
+          "heading": "ADR-012: Recipients are tenant-shared (no `created_by` column)",
+          "level": 2,
+          "line": 269
         }
       ]
     },
@@ -406,7 +451,7 @@
       ],
       "author_agent": null,
       "created": null,
-      "status": "in_progress",
+      "status": "completed",
       "supersedes": null,
       "sections": [
         {
@@ -453,6 +498,58 @@
           "heading": "Summary (finalize)",
           "level": 2,
           "line": 264
+        }
+      ]
+    },
+    {
+      "file": "log-campaigns-crud.md",
+      "total_lines": 278,
+      "has_frontmatter": true,
+      "tags": [
+        "log",
+        "api-endpoint",
+        "campaigns",
+        "recipients"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "in_progress",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Feature Log: F3 \u2014 Campaigns + Recipients CRUD + state machine",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Spec",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Agent Work",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "architect \u2014 F3 campaigns/recipients scaffolding",
+          "level": 3,
+          "line": 12
+        },
+        {
+          "heading": "backend \u2014 F3 campaigns/recipients implementation",
+          "level": 3,
+          "line": 89
+        },
+        {
+          "heading": "integration-tester \u2014 F3 campaigns/recipients tests",
+          "level": 3,
+          "line": 130
+        },
+        {
+          "heading": "code-reviewer \u2014 F3 review",
+          "level": 3,
+          "line": 198
         }
       ]
     },
@@ -676,6 +773,89 @@
       ]
     },
     {
+      "file": "spec-campaigns-crud.md",
+      "total_lines": 247,
+      "has_frontmatter": true,
+      "tags": [
+        "spec",
+        "api-endpoint",
+        "campaigns",
+        "recipients",
+        "state-machine"
+      ],
+      "author_agent": null,
+      "created": null,
+      "status": "implemented",
+      "supersedes": null,
+      "sections": [
+        {
+          "heading": "Spec: F3 \u2014 Campaigns + Recipients CRUD + State Machine",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Requirements",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Technical Design",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Data model",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "Index rationale (be ready to defend at code-review)",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "File map (apps/api delta)",
+          "level": 3,
+          "line": 83
+        },
+        {
+          "heading": "`packages/shared` delta",
+          "level": 3,
+          "line": 117
+        },
+        {
+          "heading": "Locked tech decisions",
+          "level": 3,
+          "line": 185
+        },
+        {
+          "heading": "Key business rules (summary, full list in business-rules.md)",
+          "level": 3,
+          "line": 198
+        },
+        {
+          "heading": "Out of Scope",
+          "level": 2,
+          "line": 205
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 2,
+          "line": 214
+        },
+        {
+          "heading": "Definition of Done",
+          "level": 2,
+          "line": 227
+        }
+      ]
+    },
+    {
       "file": "spec-scaffold-and-dev-env.md",
       "total_lines": 187,
       "has_frontmatter": true,
@@ -755,7 +935,7 @@
     },
     {
       "file": "tech-debt.md",
-      "total_lines": 46,
+      "total_lines": 87,
       "has_frontmatter": true,
       "tags": [
         "tech-debt",
@@ -795,6 +975,36 @@
           "heading": "LOW \u2014 `Authorization` header scheme is case-sensitive",
           "level": 3,
           "line": 35
+        },
+        {
+          "heading": "F3 Campaigns/Recipients \u2014 code-reviewer findings (2026-05-08)",
+          "level": 2,
+          "line": 41
+        },
+        {
+          "heading": "MEDIUM \u2014 `updateCampaign` find-then-update race window",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "MEDIUM \u2014 `recipient_emails` upsert is a sequential await loop",
+          "level": 3,
+          "line": 57
+        },
+        {
+          "heading": "LOW \u2014 `bulkCreate({ ignoreDuplicates: true })` masks future genuine duplicates",
+          "level": 3,
+          "line": 64
+        },
+        {
+          "heading": "LOW \u2014 `updateCampaign` JSDoc claims `update({})` bumps `updated_at`",
+          "level": 3,
+          "line": 70
+        },
+        {
+          "heading": "LOW \u2014 Recipient `name` fallback to email-prefix on auto-upsert",
+          "level": 3,
+          "line": 76
         }
       ]
     }

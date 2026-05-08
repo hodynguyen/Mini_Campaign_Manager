@@ -272,3 +272,65 @@ status: active
     encoded but NOT encrypted. We're already serving over HTTPS in any
     deployed env, so this is acceptable. Don't add anything sensitive (PII
     beyond email, role escalation context) without revisiting.
+
+## ADR-012: Recipients are tenant-shared (no `created_by` column)
+
+- **Date**: 2026-05-08
+- **Status**: accepted (during F3 think)
+- **Context**: F3 (Campaigns + Recipients CRUD) introduces the `recipients`
+  table. Two tenancy models are reasonable for marketing recipient lists:
+  - **(A) Per-tenant (recipients have `created_by`)** — each user manages
+    their own recipient pool. List/get/delete scoped by `created_by =
+    req.user.id`. Same tenancy contract as campaigns.
+  - **(B) Tenant-shared (no `created_by`)** — recipients are a global lookup.
+    Any authenticated user can list/create/attach any recipient. Only the
+    `email` UNIQUE constraint scopes identity.
+- **Decision**: Option B — recipients are tenant-shared. The `recipients`
+  table has NO `created_by` column. `GET /recipients` returns all recipients;
+  `POST /recipients` creates a globally-unique row keyed by lowercased email.
+  Authentication is still required (`requireAuth` mounts the router).
+- **Rationale**:
+  - **The brief schema doesn't include `created_by` on recipients.**
+    `ASSIGNMENT.md` §1 lists `Recipient` columns as `id, email, name,
+    created_at` — no `created_by`. Adding one would deviate from the spec.
+  - **Marketing reality**: recipient lists are usually shared business assets
+    (one address book per company), not per-user. A "marketer" persona in
+    the brief is plural — multiple users at the same company collaborating
+    on the same recipient pool.
+  - **Email uniqueness across tenants makes more sense globally**. If two
+    users both try to add `alice@example.com`, we want exactly ONE recipient
+    row, not two. Per-tenant tenancy would force a composite unique
+    `(email, created_by)` and make cross-user dedup impossible — the
+    upsert-on-create pattern in `POST /campaigns` (recipient_emails: [...])
+    would silently create duplicates.
+  - **Privacy is bounded**: recipients only carry `email` + `name`. There's
+    no per-user message history exposed via `GET /recipients` — only the
+    contact list. Per-campaign send results are scoped through
+    `campaigns.created_by` (only the campaign owner sees their own
+    `campaign_recipients` rows).
+- **Consequences**:
+  - `GET /recipients` lists ALL recipients in the system (paginated). If
+    multi-tenant deployment becomes a real concern, revisit and add a
+    `tenant_id` + filter (NOT `created_by` — keep recipients shared within
+    a tenant boundary).
+  - `DELETE /recipients/:id` is NOT exposed in F3. With tenant-shared
+    recipients, "user A deletes recipient that user B is using" is a
+    footgun. Out of scope; the FK `ON DELETE RESTRICT` on
+    `campaign_recipients.recipient_id` would block it anyway.
+  - `POST /recipients` returns 409 `RECIPIENT_EMAIL_TAKEN` on duplicate
+    email — same pattern as `EMAIL_TAKEN` for users.
+  - The model does NOT need a `defaultScope` to filter by user; queries are
+    plain `Recipient.findAll(...)`.
+- **Alternatives considered**:
+  - Option A (per-tenant) — rejected for the schema/brief reason above plus
+    the dedup footgun. Would also create the "one recipient per user per
+    email" anti-pattern that production address books explicitly avoid.
+  - Hybrid (creator visible, list public) — rejected: extra column for no
+    behavior change; the schema would still need a `created_by` we can't
+    add per the brief.
+- **Cross-references**:
+  - Implemented in: `apps/api/migrations/0003-create-recipients.ts`,
+    `apps/api/src/db/models/Recipient.ts`,
+    `apps/api/src/recipients/{schema,service}.ts`.
+  - Related to: ADR-011 (auth — recipients still require auth, just no
+    `created_by` filter).

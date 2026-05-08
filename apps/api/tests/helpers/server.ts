@@ -18,10 +18,16 @@ import type { Express } from 'express';
 
 import { createApp } from '../../src/app';
 import { sequelize } from '../../src/db/sequelize';
-// Side-effect import: registers the User model on the shared sequelize
-// instance. Without this, `User.findByPk(...)` in tests would fail with
-// "User has not been defined".
+// Side-effect imports: register every model on the shared sequelize instance
+// AND wire up associations. Without these, `User.findByPk(...)` in tests
+// would fail with "User has not been defined", and any `include: [...]` would
+// fail with "X is not associated to Y". Order doesn't matter — `associations`
+// imports the models internally.
 import '../../src/db/models/User';
+import '../../src/db/models/Campaign';
+import '../../src/db/models/Recipient';
+import '../../src/db/models/CampaignRecipient';
+import '../../src/db/associations';
 
 export { sequelize };
 
@@ -35,12 +41,25 @@ export function buildTestApp(): Express {
  * (and explicitly in `beforeEach` of the few tests that need a known empty
  * state before they run).
  *
+ * Strategy: list every test-managed table in ONE `TRUNCATE ... CASCADE`
+ * statement. Postgres handles the FK ordering internally, so we don't have
+ * to worry about deleting child rows before parents.
+ *
+ * Tables (as of F3):
+ *   - campaign_recipients  (FK -> campaigns, recipients)
+ *   - campaigns            (FK -> users)
+ *   - recipients           (no FK; tenant-shared)
+ *   - users                (root)
+ *
  * RESTART IDENTITY: resets sequence counters so id columns start over (a
  * non-issue for UUID PKs but cheap and future-proof).
- * CASCADE: drops dependents transparently when F3+ adds FK tables.
+ * CASCADE: drops dependents transparently. Future migrations adding new
+ * FK-referencing tables can extend this list as needed.
  */
 export async function truncate(): Promise<void> {
-  await sequelize.query('TRUNCATE TABLE "users" RESTART IDENTITY CASCADE');
+  await sequelize.query(
+    'TRUNCATE TABLE "campaign_recipients", "campaigns", "recipients", "users" RESTART IDENTITY CASCADE',
+  );
 }
 
 /** Close the connection pool. Call from the last `afterAll` per test file. */
