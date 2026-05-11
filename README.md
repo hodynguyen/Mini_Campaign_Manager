@@ -12,7 +12,7 @@ Take-home assignment — see [`ASSIGNMENT.md`](./ASSIGNMENT.md) for the brief.
 ## Submission walkthrough (TL;DR for the reviewer)
 
 - **Public repo:** https://github.com/hodynguyen/Mini_Campaign_Manager
-- **One-liner setup:** `nvm use && yarn install && docker compose up -d && yarn workspace @app/api seed && yarn dev`
+- **One-liner setup:** `nvm use && yarn install && docker compose up -d --wait && yarn workspace @app/api migrate && yarn workspace @app/api seed && yarn dev`
 - **Demo login:** `demo@example.com` / `demo1234` (created by the seed)
 - **Tests:** 78 backend (jest+supertest, real Postgres) + 8 frontend (vitest+RTL) = **86 total**
 - **CI:** GitHub Actions runs install + lint + test on every push, with an ephemeral Postgres service container
@@ -98,7 +98,7 @@ nvm use                                           # picks up Node 20
 yarn install                                      # all workspaces
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env            # optional — has a sane default
-docker compose up -d                              # Postgres 16 on :5432
+docker compose up -d --wait                       # Postgres 16 on :5432 (waits for healthcheck)
 yarn workspace @app/api migrate                   # apply migrations 0001..0004
 yarn workspace @app/api seed                      # demo user + 15 recipients + 4 campaigns
 yarn dev                                          # api :4000 + web :5173 in parallel
@@ -129,7 +129,7 @@ never wipe demo data. Two ways to provision it:
 
 **Option A — docker compose Postgres (recommended):**
 ```bash
-docker compose up -d postgres
+docker compose up -d --wait postgres
 docker compose exec postgres \
   psql -U campaign -d campaign -c 'CREATE DATABASE campaign_test;'
 cp apps/api/.env.example apps/api/.env.test       # gitignored
